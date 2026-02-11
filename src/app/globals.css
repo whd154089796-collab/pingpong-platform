@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
+  --background: 0 0% 20%;
+  --foreground: 0 0% 95%;
+  --primary: 200 100% 50%;
+  --primary-foreground: 0 0% 100%;
 }
 
 body {
-  background-color: #383838;
-  color: #111827;
+  background-color: #2d2d2d;
+  color: #f0f0f0;
 }
 
 .container {

@@ -15,63 +15,63 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-3xl font-bold">个人中心</h1>
+      <h1 className="text-3xl font-bold text-white">个人中心</h1>
 
       {/* 快捷导航 */}
       <div className="grid md:grid-cols-3 gap-6">
         <Link
           href="/users/1"
-          className="flex items-center gap-4 p-6 bg-white border rounded-lg hover:shadow-lg transition"
+          className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
         >
-          <BarChart3 className="w-8 h-8 text-blue-600" />
+          <BarChart3 className="w-8 h-8 text-cyan-400" />
           <div>
             <p className="font-semibold">我的主页</p>
-            <p className="text-sm text-gray-500">查看公开个人资料</p>
+            <p className="text-sm text-gray-300">查看公开个人资料</p>
           </div>
         </Link>
         <Link
           href="/matches"
-          className="flex items-center gap-4 p-6 bg-white border rounded-lg hover:shadow-lg transition"
+          className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
         >
-          <Calendar className="w-8 h-8 text-green-600" />
+          <Calendar className="w-8 h-8 text-green-400" />
           <div>
             <p className="font-semibold">我的比赛</p>
-            <p className="text-sm text-gray-500">{currentUser.myMatches.length} 场进行中</p>
+            <p className="text-sm text-gray-300">{currentUser.myMatches.length} 场进行中</p>
           </div>
         </Link>
         <Link
           href="#"
-          className="flex items-center gap-4 p-6 bg-white border rounded-lg hover:shadow-lg transition"
+          className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
         >
-          <Settings className="w-8 h-8 text-gray-600" />
+          <Settings className="w-8 h-8 text-gray-400" />
           <div>
             <p className="font-semibold">账号设置</p>
-            <p className="text-sm text-gray-500">头像、昵称、密码</p>
+            <p className="text-sm text-gray-300">头像、昵称、密码</p>
           </div>
         </Link>
       </div>
 
       {/* 我的比赛 */}
-      <div className="bg-white border rounded-lg p-8">
-        <h2 className="text-xl font-bold mb-4">我的比赛</h2>
+      <div className="bg-gray-700 border border-gray-600 rounded-lg p-8">
+        <h2 className="text-xl font-bold mb-4 text-white">我的比赛</h2>
         <div className="space-y-3">
           {currentUser.myMatches.map((match) => (
             <Link
               key={match.id}
               href={`/matches/${match.id}`}
-              className="flex items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition"
+              className="flex items-center justify-between p-4 rounded-lg bg-gray-600 hover:bg-gray-500 transition text-white"
             >
               <div>
                 <p className="font-medium">{match.title}</p>
-                <p className="text-sm text-gray-500">{match.role}</p>
+                <p className="text-sm text-gray-300">{match.role}</p>
               </div>
               <span
                 className={`px-3 py-1 rounded-full text-sm font-medium ${
                   match.status === '报名中'
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-green-600 text-white'
                     : match.status === '进行中'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-100 text-gray-800'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-600 text-white'
                 }`}
               >
                 {match.status}

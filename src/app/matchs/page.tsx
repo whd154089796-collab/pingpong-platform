@@ -58,10 +58,10 @@ export default function MatchesPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">比赛大厅</h1>
+        <h1 className="text-3xl font-bold text-white">比赛大厅</h1>
         <a
           href="/matches/create"
-          className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 text-center"
+          className="inline-block bg-cyan-600 text-white px-6 py-2 rounded-lg hover:bg-cyan-700 transition text-center"
         >
           + 发布比赛
         </a>
@@ -70,13 +70,13 @@ export default function MatchesPage() {
       {/* 搜索和筛选 */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
           <input
             type="text"
             placeholder="搜索比赛..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
         <div className="flex gap-2">
@@ -86,8 +86,8 @@ export default function MatchesPage() {
               onClick={() => setFilter(status)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                 filter === status
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-cyan-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
               {status === 'all' ? '全部' : status}
@@ -104,7 +104,7 @@ export default function MatchesPage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 text-gray-500">
+        <div className="text-center py-16 text-gray-400">
           <p className="text-xl mb-2">没有找到匹配的比赛</p>
           <p>试试调整筛选条件或搜索关键词</p>
         </div>

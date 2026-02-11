@@ -6,19 +6,19 @@ export default function Home() {
   return (
     <div className="space-y-12">
       {/* Hero Section */}
-      <section className="text-center py-12 bg-linear-to-r from-blue-500 to-green-500 rounded-lg text-white">
+      <section className="text-center py-12 bg-gradient-to-r from-gray-700 to-gray-600 rounded-lg text-white">
         <h1 className="text-5xl font-bold mb-4">乒乓球竞技平台</h1>
         <p className="text-xl mb-8">记录每一次精彩对决，见证你的成长</p>
         <div className="flex gap-4 justify-center">
           <Link 
             href="/matches/create"
-            className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100"
+            className="bg-cyan-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-cyan-600 transition"
           >
             发布比赛
           </Link>
           <Link 
             href="/matches"
-            className="border-2 border-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10"
+            className="border-2 border-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition"
           >
             浏览比赛
           </Link>
@@ -49,7 +49,7 @@ export default function Home() {
 
       {/* Latest Matches */}
       <section>
-        <h2 className="text-3xl font-bold mb-6">最新比赛</h2>
+        <h2 className="text-3xl font-bold mb-6 text-white">最新比赛</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* 这里后续会从API获取数据 */}
           <MatchCard
@@ -76,10 +76,10 @@ function QuickLinkCard({ icon, title, description, href }: {
 }) {
   return (
     <Link href={href}>
-      <div className="p-6 border rounded-lg hover:shadow-lg transition-shadow cursor-pointer">
-        <div className="text-blue-600 mb-4">{icon}</div>
-        <h3 className="text-xl font-semibold mb-2">{title}</h3>
-        <p className="text-gray-600">{description}</p>
+      <div className="p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition-shadow cursor-pointer text-white">
+        <div className="text-cyan-400 mb-4">{icon}</div>
+        <h3 className="text-xl font-semibold mb-2 text-white">{title}</h3>
+        <p className="text-gray-300">{description}</p>
       </div>
     </Link>
   )

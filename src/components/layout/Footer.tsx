@@ -9,7 +9,7 @@ export default function Footer() {
           {/* 品牌区 */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-white font-bold text-xl">
-              <Trophy className="text-blue-400" />
+              <Trophy className="text-cyan-400" />
               <span>乒乓球平台</span>
             </div>
             <p className="text-sm">
