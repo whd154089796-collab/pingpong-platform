@@ -33,7 +33,7 @@ export default function CreateMatchPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <Link
-        href="/matches"
+        href="/matchs"
         className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="w-4 h-4" />
