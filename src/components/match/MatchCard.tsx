@@ -83,7 +83,7 @@ export default function MatchCard({
 
         <div className="flex gap-2.5">
           <Link
-            href={`/matchs/${id}`}
+            href={`/matches/${id}`}
             className="flex-1 rounded-lg border border-slate-500/80 py-2.5 text-center text-sm font-medium text-slate-100 transition hover:border-cyan-400/70 hover:bg-cyan-500/10"
           >
             查看详情
