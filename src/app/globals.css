@@ -1,17 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: 0 0% 20%;
-  --foreground: 0 0% 95%;
-  --primary: 200 100% 50%;
-  --primary-foreground: 0 0% 100%;
+  --background: 222 47% 7%;
+  --foreground: 210 40% 96%;
+  --primary: 191 95% 47%;
+  --primary-foreground: 222 47% 11%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background-color: #2d2d2d;
-  color: #f0f0f0;
-}
-
-.container {
-  max-width: 80rem;
+  margin: 0;
+  background:
+    radial-gradient(circle at 85% -20%, rgba(34, 211, 238, 0.14), transparent 36%),
+    linear-gradient(180deg, #020617 0%, #0b1120 100%);
+  color: #f1f5f9;
 }

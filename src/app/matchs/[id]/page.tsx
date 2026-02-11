@@ -42,7 +42,7 @@ export default async function MatchDetailPage({
     <div className="max-w-4xl mx-auto space-y-8">
       {/* 返回按钮 */}
       <Link
-        href="/matches"
+        href="/matchs"
         className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="w-4 h-4" />

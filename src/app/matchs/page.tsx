@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Search } from 'lucide-react'
 import MatchCard from '@/components/match/MatchCard'
 
@@ -59,12 +60,12 @@ export default function MatchesPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-white">比赛大厅</h1>
-        <a
-          href="/matches/create"
+        <Link
+          href="/matchs/create"
           className="inline-block bg-cyan-600 text-white px-6 py-2 rounded-lg hover:bg-cyan-700 transition text-center"
         >
           + 发布比赛
-        </a>
+        </Link>
       </div>
 
       {/* 搜索和筛选 */}

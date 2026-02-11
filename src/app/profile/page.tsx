@@ -30,7 +30,7 @@ export default function ProfilePage() {
           </div>
         </Link>
         <Link
-          href="/matches"
+          href="/matchs"
           className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
         >
           <Calendar className="w-8 h-8 text-green-400" />
@@ -58,7 +58,7 @@ export default function ProfilePage() {
           {currentUser.myMatches.map((match) => (
             <Link
               key={match.id}
-              href={`/matches/${match.id}`}
+              href={`/matchs/${match.id}`}
               className="flex items-center justify-between p-4 rounded-lg bg-gray-600 hover:bg-gray-500 transition text-white"
             >
               <div>
