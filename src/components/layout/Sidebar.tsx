@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarRange, Home, Medal, PlusSquare, UserRound } from 'lucide-react'
+import { CalendarRange, ChevronRight, Home, Medal, PlusSquare, UserRound } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: '首页', icon: Home },
@@ -9,15 +9,58 @@ const navItems = [
   { href: '/profile', label: '个人中心', icon: UserRound },
 ]
 
+const currentUser = {
+  id: '1',
+  nickname: '张三',
+  avatar: null as string | null,
+  points: 1250,
+  eloRating: 1680,
+}
+
 export default function Sidebar() {
+  const avatarFallback = (currentUser.nickname?.trim()?.[0] ?? '?').toUpperCase()
+
   return (
     <aside className="hidden lg:flex lg:w-72 lg:shrink-0">
       <div className="sticky top-0 h-screen w-full border-r border-slate-700/70 bg-slate-900/90 px-5 py-6 backdrop-blur-xl">
-        <div className="rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-slate-800 to-slate-900 p-4 shadow-lg shadow-cyan-950/20">
-          <p className="text-xs tracking-[0.28em] text-cyan-300">USTC TTA</p>
-          <h2 className="mt-2 text-xl font-bold text-white">乒乓球竞技平台</h2>
-          <p className="mt-2 text-sm text-slate-300">统一赛事、积分与荣誉展示的数字化平台</p>
-        </div>
+        <section className="rounded-2xl border border-slate-700/70 bg-slate-950/20 p-4">
+          <Link
+            href="/profile"
+            className="group flex items-center gap-3 rounded-xl border border-transparent p-2 transition hover:border-cyan-400/30 hover:bg-slate-800/40"
+            aria-label="查看个人中心"
+          >
+            <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-500/15 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/25">
+              {currentUser.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.nickname}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span aria-hidden="true">{avatarFallback}</span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-50">{currentUser.nickname}</p>
+              <p className="mt-0.5 text-xs text-slate-400">我的主页</p>
+            </div>
+
+            <ChevronRight className="h-4 w-4 text-slate-500 transition group-hover:text-slate-200" />
+          </Link>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 px-3 py-2">
+              <p className="text-[11px] text-slate-400">ELO</p>
+              <p className="mt-1 text-base font-bold tabular-nums text-slate-100">{currentUser.eloRating}</p>
+            </div>
+            <div className="rounded-xl border border-slate-700/60 bg-slate-950/30 px-3 py-2">
+              <p className="text-[11px] text-slate-400">积分</p>
+              <p className="mt-1 text-base font-bold tabular-nums text-slate-100">{currentUser.points}</p>
+            </div>
+          </div>
+        </section>
 
         <nav className="mt-6 space-y-2">
           {navItems.map(({ href, label, icon: Icon }) => (
@@ -31,26 +74,6 @@ export default function Sidebar() {
             </Link>
           ))}
         </nav>
-
-        <div className="mt-8 space-y-3">
-          <h3 className="text-xs font-semibold tracking-[0.22em] text-slate-400">荣誉徽章</h3>
-          <a
-            href="/25周年徽章.pdf"
-            target="_blank"
-            rel="noreferrer"
-            className="block rounded-xl border border-amber-300/35 bg-gradient-to-r from-amber-500/20 to-orange-500/10 p-3 text-sm text-amber-100 transition hover:border-amber-300/60"
-          >
-            25周年纪念徽章
-          </a>
-          <a
-            href="/乒协徽章.pdf"
-            target="_blank"
-            rel="noreferrer"
-            className="block rounded-xl border border-cyan-300/35 bg-gradient-to-r from-cyan-500/20 to-blue-500/10 p-3 text-sm text-cyan-100 transition hover:border-cyan-300/60"
-          >
-            乒协荣誉徽章
-          </a>
-        </div>
       </div>
     </aside>
   )
