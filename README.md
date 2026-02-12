@@ -1,5 +1,27 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Database (Prisma + Neon)
+
+This project now includes a Prisma schema for the ping-pong platform domain (users, matches, registrations, results, ELO history, points ledger, rewards/redemptions, badges, reviews, audit logs, and ranking cache tables).
+
+1. Create a Neon project and copy its Postgres connection strings.
+2. Add environment variables:
+
+```bash
+DATABASE_URL="postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require"
+DIRECT_URL="postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require"
+```
+
+3. Generate Prisma client and run migration:
+
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+```
+
+Prisma schema location: `prisma/schema.prisma`.
+Prisma client singleton: `src/lib/prisma.ts`.
+
 ## Getting Started
 
 First, run the development server:
@@ -31,6 +53,6 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
