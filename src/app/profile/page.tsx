@@ -1,85 +1,75 @@
 import Link from 'next/link'
-import { Settings, Calendar, BarChart3 } from 'lucide-react'
+import { Calendar, LogOut } from 'lucide-react'
+import { getCurrentUser } from '@/lib/auth'
+import { logoutAction } from '@/app/auth/actions'
+import ProfileEditorForm from '@/components/auth/ProfileEditorForm'
+import { prisma } from '@/lib/prisma'
 
-export default function ProfilePage() {
-  // 模拟当前登录用户
-  const currentUser = {
-    nickname: '张三',
-    eloRating: 1680,
-    points: 1250,
-    myMatches: [
-      { id: '1', title: '春季乒乓球联赛', role: '参赛者', status: '报名中' },
-      { id: '2', title: '周末友谊赛', role: '组织者', status: '进行中' },
-    ],
+export default async function ProfilePage() {
+  const currentUser = await getCurrentUser()
+
+  if (!currentUser) {
+    return (
+      <div className="mx-auto max-w-3xl rounded-2xl border border-slate-700/70 bg-slate-900/75 p-8 text-center">
+        <h1 className="text-3xl font-bold text-white">个人中心</h1>
+        <p className="mt-3 text-slate-300">当前状态：待登录。登录后即可查看和编辑个人资料。</p>
+        <Link href="/auth" className="mt-6 inline-block rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white">
+          去登录 / 注册
+        </Link>
+      </div>
+    )
   }
 
+  const myMatches = await prisma.registration.findMany({
+    where: { userId: currentUser.id },
+    include: { match: true },
+    orderBy: { createdAt: 'desc' },
+    take: 5,
+  })
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-3xl font-bold text-white">个人中心</h1>
-
-      {/* 快捷导航 */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <Link
-          href="/users/1"
-          className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
-        >
-          <BarChart3 className="w-8 h-8 text-cyan-400" />
-          <div>
-            <p className="font-semibold">我的主页</p>
-            <p className="text-sm text-gray-300">查看公开个人资料</p>
-          </div>
-        </Link>
-        <Link
-          href="/matchs"
-          className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
-        >
-          <Calendar className="w-8 h-8 text-green-400" />
-          <div>
-            <p className="font-semibold">我的比赛</p>
-            <p className="text-sm text-gray-300">{currentUser.myMatches.length} 场进行中</p>
-          </div>
-        </Link>
-        <Link
-          href="#"
-          className="flex items-center gap-4 p-6 bg-gray-700 border border-gray-600 rounded-lg hover:shadow-lg transition text-white"
-        >
-          <Settings className="w-8 h-8 text-gray-400" />
-          <div>
-            <p className="font-semibold">账号设置</p>
-            <p className="text-sm text-gray-300">头像、昵称、密码</p>
-          </div>
-        </Link>
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-white">个人中心</h1>
+        <form action={logoutAction}>
+          <button className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+            <LogOut className="h-4 w-4" />
+            退出登录
+          </button>
+        </form>
       </div>
 
-      {/* 我的比赛 */}
-      <div className="bg-gray-700 border border-gray-600 rounded-lg p-8">
-        <h2 className="text-xl font-bold mb-4 text-white">我的比赛</h2>
+      <section className="rounded-2xl border border-slate-700/70 bg-slate-900/75 p-6">
+        <p className="text-sm text-slate-400">账号邮箱：{currentUser.email}</p>
+        <p className="mt-1 text-slate-300">ELO {currentUser.eloRating} · 积分 {currentUser.points}</p>
+      </section>
+
+      <section className="rounded-2xl border border-slate-700/70 bg-slate-900/75 p-6">
+        <h2 className="mb-4 text-xl font-semibold text-white">编辑资料</h2>
+        <ProfileEditorForm nickname={currentUser.nickname} bio={currentUser.bio ?? ''} avatarUrl={currentUser.avatarUrl ?? ''} />
+      </section>
+
+      <section className="rounded-2xl border border-slate-700/70 bg-slate-900/75 p-6">
+        <h2 className="mb-4 text-xl font-semibold text-white">我的比赛</h2>
         <div className="space-y-3">
-          {currentUser.myMatches.map((match) => (
-            <Link
-              key={match.id}
-              href={`/matchs/${match.id}`}
-              className="flex items-center justify-between p-4 rounded-lg bg-gray-600 hover:bg-gray-500 transition text-white"
-            >
-              <div>
-                <p className="font-medium">{match.title}</p>
-                <p className="text-sm text-gray-300">{match.role}</p>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  match.status === '报名中'
-                    ? 'bg-green-600 text-white'
-                    : match.status === '进行中'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-600 text-white'
-                }`}
-              >
-                {match.status}
-              </span>
-            </Link>
-          ))}
+          {myMatches.length === 0 ? (
+            <p className="text-sm text-slate-400">你还没有报名任何比赛。</p>
+          ) : (
+            myMatches.map((item) => (
+              <Link key={item.id} href={`/matchs/${item.matchId}`} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/70 p-4 text-slate-100 hover:border-cyan-400/45">
+                <div>
+                  <p className="font-medium">{item.match.title}</p>
+                  <p className="text-sm text-slate-400">角色：{item.role}</p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs text-slate-300">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(item.match.dateTime).toLocaleDateString('zh-CN')}
+                </span>
+              </Link>
+            ))
+          )}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

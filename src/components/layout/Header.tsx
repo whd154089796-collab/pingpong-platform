@@ -4,6 +4,10 @@ import Link from 'next/link'
 import { Menu, Trophy } from 'lucide-react'
 import { useState } from 'react'
 
+type Props = {
+  isLoggedIn: boolean
+}
+
 const mobileNav = [
   { href: '/', label: '首页' },
   { href: '/matchs', label: '比赛大厅' },
@@ -12,7 +16,7 @@ const mobileNav = [
   { href: '/profile', label: '个人中心' },
 ]
 
-export default function Header() {
+export default function Header({ isLoggedIn }: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
@@ -36,6 +40,12 @@ export default function Header() {
 
         {isMenuOpen && (
           <div className="space-y-2 pb-4">
+            {!isLoggedIn && (
+              <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-300">
+                当前状态：待登录
+                <Link href="/auth" className="ml-2 text-cyan-300">去登录</Link>
+              </div>
+            )}
             {mobileNav.map((item) => (
               <Link
                 key={item.href}
