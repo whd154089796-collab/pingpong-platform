@@ -54,6 +54,7 @@ model User {
   id               String    @id @default(cuid())
   email            String    @unique
   nickname         String
+  bio              String?
   avatarUrl        String?
   points           Int       @default(0)
   eloRating        Int       @default(1200)
@@ -64,6 +65,7 @@ model User {
   matchesPlayed    Int       @default(0)
   authProviderId   String?   @unique
   hashedPassword   String?
+  emailVerifiedAt  DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -80,6 +82,8 @@ model User {
   reviewsGiven     Review[]             @relation("Reviewer")
   reviewsReceived  Review[]             @relation("Reviewee")
   auditLogs        AuditLog[]
+
+  verificationTokens EmailVerificationToken[]
 }
 
 model Match {
@@ -280,4 +284,18 @@ model RankingSnapshot {
   createdAt        DateTime  @default(now())
 
   @@index([scope, createdAt])
+}
+
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
