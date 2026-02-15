@@ -72,6 +72,8 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
     },
   })
 
+  await prisma.registration.deleteMany({ where: { matchId: created.id, userId: currentUser.id } })
+
   revalidatePath('/matchs')
   redirect(`/matchs/${created.id}`)
 }
@@ -144,6 +146,89 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
   return { success: '赛制设置已更新。' }
 }
 
+
+export async function unregisterMatchAction(matchId: string): Promise<MatchFormState> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return { error: '请先登录。' }
+
+  const match = await prisma.match.findUnique({ where: { id: matchId } })
+  if (!match) return { error: '比赛不存在。' }
+  if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可退出。' }
+
+  const deleted = await prisma.registration.deleteMany({
+    where: { matchId, userId: currentUser.id },
+  })
+
+  if (deleted.count === 0) {
+    return { error: '你尚未报名该比赛。' }
+  }
+
+  revalidatePath('/matchs')
+  revalidatePath(`/matchs/${matchId}`)
+  return { success: '已退出报名。' }
+}
+
+export async function updateMatchAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return { error: '请先登录。' }
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { _count: { select: { registrations: true } } },
+  })
+  if (!match) return { error: '比赛不存在。' }
+  if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改比赛。' }
+  if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可修改。' }
+
+  const title = String(formData.get('title') ?? '').trim()
+  const description = String(formData.get('description') ?? '').trim()
+  const location = String(formData.get('location') ?? '').trim()
+  const date = String(formData.get('date') ?? '')
+  const time = String(formData.get('time') ?? '')
+  const type = String(formData.get('type') ?? 'single') as MatchType
+  const format = String(formData.get('format') ?? match.format) as CompetitionFormat
+  const maxParticipants = Number(formData.get('maxParticipants') ?? match.maxParticipants)
+  const deadlineInput = String(formData.get('registrationDeadline') ?? '')
+
+  if (!title || !location || !date || !time) return { error: '请完整填写必填项。' }
+
+  const limit = maxLimitByFormat(format)
+  if (!Number.isFinite(maxParticipants) || maxParticipants < match._count.registrations || maxParticipants > limit) {
+    return { error: `人数需 >= 已报名人数且 <= ${limit}。` }
+  }
+
+  const matchDate = parseDateTime(date, time)
+  if (Number.isNaN(matchDate.getTime())) return { error: '比赛时间格式无效。' }
+
+  const deadline = deadlineInput ? new Date(deadlineInput) : match.registrationDeadline
+  if (Number.isNaN(deadline.getTime())) return { error: '截止时间格式错误。' }
+  if (deadline >= matchDate) return { error: '截止时间必须早于比赛开始时间。' }
+
+  await prisma.match.update({
+    where: { id: matchId },
+    data: {
+      title,
+      description: description || null,
+      location,
+      dateTime: matchDate,
+      type,
+      format,
+      maxParticipants,
+      registrationDeadline: deadline,
+      groupingGeneratedAt: null,
+      rule: {
+        note: format === 'group_only' ? '分组循环赛' : '先分组后淘汰赛',
+      },
+    },
+  })
+
+  await prisma.matchGrouping.deleteMany({ where: { matchId } })
+
+  revalidatePath('/matchs')
+  revalidatePath(`/matchs/${matchId}`)
+  redirect(`/matchs/${matchId}`)
+}
+
 export async function ensureGroupingGenerated(matchId: string) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -172,4 +257,7 @@ export async function ensureGroupingGenerated(matchId: string) {
       data: { groupingGeneratedAt: new Date(), status: MatchStatus.ongoing },
     }),
   ])
+
+  revalidatePath('/matchs')
+  revalidatePath(`/matchs/${match.id}`)
 }

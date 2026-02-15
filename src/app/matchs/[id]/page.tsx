@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import RegisterMatchButton from '@/components/match/RegisterMatchButton'
+import UnregisterMatchButton from '@/components/match/UnregisterMatchButton'
 import MatchSettingsForm from '@/components/match/MatchSettingsForm'
 import { ensureGroupingGenerated } from '@/app/matchs/actions'
 
@@ -62,6 +63,11 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
             <p className="mt-2 text-slate-300">{match.description || '暂无描述'}</p>
             <p className="mt-2 text-sm text-slate-400">赛制：{match.format === 'group_only' ? '分组比赛' : '前期分组后期淘汰赛'}</p>
             <p className="text-sm text-slate-400">报名截止：{match.registrationDeadline.toLocaleString('zh-CN')}</p>
+            {isCreator && now < match.registrationDeadline && (
+              <Link href={`/matchs/${match.id}/edit`} className="mt-3 inline-block rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-500/10">
+                修改比赛
+              </Link>
+            )}
           </div>
         </div>
 
@@ -92,10 +98,16 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         <div className="mt-8">
           {!currentUser ? (
             <p className="text-sm text-slate-300">请先登录后报名。</p>
-          ) : alreadyRegistered ? (
-            <p className="text-sm text-emerald-300">你已报名该比赛。</p>
-          ) : (
-            <RegisterMatchButton matchId={match.id} disabled={!canRegister} disabledText={now >= match.registrationDeadline ? '报名已截止' : '当前不可报名'} />
+          ) : isCreator && !alreadyRegistered ? (
+            <p className="text-sm text-slate-300">你是比赛发起人，当前尚未报名，可手动点击报名加入参赛名单。</p>
+          ) : null}
+
+          {currentUser && (
+            alreadyRegistered ? (
+              <UnregisterMatchButton matchId={match.id} />
+            ) : (
+              <RegisterMatchButton matchId={match.id} disabled={!canRegister} disabledText={now >= match.registrationDeadline ? '报名已截止' : '当前不可报名'} />
+            )
           )}
         </div>
       </div>
