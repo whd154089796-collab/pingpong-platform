@@ -12,12 +12,19 @@ export type MatchFormState = {
   success?: string
 }
 
+export type GroupingAdminState = {
+  error?: string
+  success?: string
+  previewJson?: string
+}
+
 function parseDateTime(date: string, time: string) {
   return new Date(`${date}T${time}:00`)
 }
 
-function maxLimitByFormat(format: CompetitionFormat) {
-  return format === 'group_then_knockout' ? 64 : 256
+function canManageGrouping(currentUser: Awaited<ReturnType<typeof getCurrentUser>>, createdBy: string) {
+  if (!currentUser) return false
+  return currentUser.id === createdBy || currentUser.role === 'admin'
 }
 
 export async function createMatchAction(_: MatchFormState, formData: FormData): Promise<MatchFormState> {
@@ -38,9 +45,8 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
     return { error: '请完整填写必填项。' }
   }
 
-  const limit = maxLimitByFormat(format)
-  if (!Number.isFinite(maxParticipants) || maxParticipants < 2 || maxParticipants > limit) {
-    return { error: `该赛制最多支持 ${limit} 人。` }
+  if (!Number.isFinite(maxParticipants) || maxParticipants < 2) {
+    return { error: '最大人数至少为 2。' }
   }
 
   const matchDate = parseDateTime(date, time)
@@ -121,9 +127,8 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
   const deadlineInput = String(formData.get('registrationDeadline') ?? '')
   const maxParticipants = Number(formData.get('maxParticipants') ?? match.maxParticipants)
 
-  const limit = maxLimitByFormat(format)
-  if (maxParticipants < match._count.registrations || maxParticipants > limit) {
-    return { error: `人数需 >= 已报名人数且 <= ${limit}。` }
+  if (!Number.isFinite(maxParticipants) || maxParticipants < match._count.registrations) {
+    return { error: '人数需 >= 已报名人数。' }
   }
 
   const nextDeadline = deadlineInput ? new Date(deadlineInput) : match.registrationDeadline
@@ -137,6 +142,7 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
       registrationDeadline: nextDeadline,
       maxParticipants,
       groupingGeneratedAt: null,
+      status: MatchStatus.registration,
     },
   })
   await prisma.matchGrouping.deleteMany({ where: { matchId } })
@@ -145,7 +151,6 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
   revalidatePath('/matchs')
   return { success: '赛制设置已更新。' }
 }
-
 
 export async function unregisterMatchAction(matchId: string): Promise<MatchFormState> {
   const currentUser = await getCurrentUser()
@@ -192,9 +197,8 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
 
   if (!title || !location || !date || !time) return { error: '请完整填写必填项。' }
 
-  const limit = maxLimitByFormat(format)
-  if (!Number.isFinite(maxParticipants) || maxParticipants < match._count.registrations || maxParticipants > limit) {
-    return { error: `人数需 >= 已报名人数且 <= ${limit}。` }
+  if (!Number.isFinite(maxParticipants) || maxParticipants < match._count.registrations) {
+    return { error: '人数需 >= 已报名人数。' }
   }
 
   const matchDate = parseDateTime(date, time)
@@ -216,6 +220,7 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
       maxParticipants,
       registrationDeadline: deadline,
       groupingGeneratedAt: null,
+      status: MatchStatus.registration,
       rule: {
         note: format === 'group_only' ? '分组循环赛' : '先分组后淘汰赛',
       },
@@ -229,32 +234,84 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
   redirect(`/matchs/${matchId}`)
 }
 
-export async function ensureGroupingGenerated(matchId: string) {
+export async function previewGroupingAction(matchId: string, _: GroupingAdminState, formData: FormData): Promise<GroupingAdminState> {
+  const currentUser = await getCurrentUser()
+
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
       registrations: {
-        include: { user: { select: { id: true, nickname: true, eloRating: true, points: true } } },
+        include: {
+          user: {
+            select: { id: true, nickname: true, points: true, eloRating: true },
+          },
+        },
       },
-      groupingResult: true,
     },
   })
 
-  if (!match) return
-  if (match.groupingResult) return
-  if (new Date() < match.registrationDeadline) return
+  if (!match) return { error: '比赛不存在。' }
+  if (!canManageGrouping(currentUser, match.createdBy)) return { error: '仅发起人或管理员可生成分组。' }
+  if (new Date() < match.registrationDeadline) return { error: '报名截止后才可生成分组。' }
 
-  const maxAllowed = match.format === CompetitionFormat.group_then_knockout ? 64 : 256
-  const participants = match.registrations.slice(0, maxAllowed).map((r) => r.user)
-  if (participants.length < 2) return
+  const groupCount = Number(formData.get('groupCount') ?? 0)
+  const qualifiersPerGroup = Number(formData.get('qualifiersPerGroup') ?? 1)
+  const participants = match.registrations.map((r) => r.user)
 
-  const payload = generateGroupingPayload(match.format, participants)
+  if (participants.length < 2) return { error: '报名人数不足，无法分组。' }
+  if (!Number.isFinite(groupCount) || groupCount < 1) return { error: '组数必须为正整数。' }
+  if (groupCount > participants.length) return { error: '组数不能超过报名人数。' }
+
+  try {
+    const payload = generateGroupingPayload(match.format, participants, {
+      groupCount,
+      qualifiersPerGroup: match.format === 'group_then_knockout' ? qualifiersPerGroup : undefined,
+    })
+
+    return {
+      success: '已生成分组预览，请确认发布。',
+      previewJson: JSON.stringify(payload),
+    }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : '生成分组失败。' }
+  }
+}
+
+export async function confirmGroupingAction(matchId: string, _: GroupingAdminState, formData: FormData): Promise<GroupingAdminState> {
+  const currentUser = await getCurrentUser()
+  const previewJson = String(formData.get('previewJson') ?? '')
+
+  if (!previewJson) return { error: '请先生成分组预览。' }
+
+  const match = await prisma.match.findUnique({ where: { id: matchId }, include: { groupingResult: true } })
+  if (!match) return { error: '比赛不存在。' }
+  if (!canManageGrouping(currentUser, match.createdBy)) return { error: '仅发起人或管理员可确认分组。' }
+  if (new Date() < match.registrationDeadline) return { error: '报名截止后才可确认分组。' }
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(previewJson)
+  } catch {
+    return { error: '预览数据无效，请重新生成。' }
+  }
 
   await prisma.$transaction([
-    prisma.matchGrouping.create({ data: { matchId: match.id, payload } }),
+    prisma.matchGrouping.upsert({
+      where: { matchId },
+      create: { matchId, payload: payload as object },
+      update: { payload: payload as object, createdAt: new Date() },
+    }),
     prisma.match.update({
-      where: { id: match.id },
-      data: { groupingGeneratedAt: new Date(), status: MatchStatus.ongoing },
+      where: { id: matchId },
+      data: { status: MatchStatus.ongoing, groupingGeneratedAt: new Date() },
     }),
   ])
+<<<<<<< HEAD
+=======
+
+  revalidatePath('/matchs')
+  revalidatePath(`/matchs/${matchId}`)
+
+  return { success: '分组结果已确认并发布到所有用户页面。' }
+>>>>>>> 6f9292256d1bff6f18eba0d5560dd89a5a1f9e37
 }

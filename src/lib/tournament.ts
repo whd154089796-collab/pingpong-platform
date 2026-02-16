@@ -10,6 +10,10 @@ export type SeedPlayer = {
 type GroupingPayload = {
   generatedAt: string
   format: CompetitionFormat
+  config: {
+    groupCount: number
+    qualifiersPerGroup?: number
+  }
   groups: Array<{
     name: string
     players: SeedPlayer[]
@@ -43,19 +47,23 @@ function averagePoints(players: SeedPlayer[]) {
   return Math.round(players.reduce((sum, p) => sum + p.points, 0) / players.length)
 }
 
-function nearestPowerOf2(value: number) {
-  let p = 1
-  while (p * 2 <= value) p *= 2
-  return p
+function isPowerOfTwo(value: number) {
+  return value > 0 && (value & (value - 1)) === 0
 }
 
-export function generateGroupingPayload(format: CompetitionFormat, participants: SeedPlayer[]): GroupingPayload {
+export function generateGroupingPayload(
+  format: CompetitionFormat,
+  participants: SeedPlayer[],
+  config: { groupCount: number; qualifiersPerGroup?: number },
+): GroupingPayload {
   const sorted = [...participants].sort((a, b) => b.points - a.points || b.eloRating - a.eloRating)
   const total = sorted.length
 
-  const idealGroupSize = format === 'group_then_knockout' ? 4 : 6
-  const groupCount = Math.max(1, Math.min(16, Math.ceil(total / idealGroupSize)))
-  const groupPlayers = snakeDistribute(sorted, groupCount)
+  if (config.groupCount < 1 || config.groupCount > total) {
+    throw new Error('组数不合法。')
+  }
+
+  const groupPlayers = snakeDistribute(sorted, config.groupCount)
 
   const groups = groupPlayers.map((players, index) => ({
     name: `第 ${index + 1} 组`,
@@ -66,29 +74,46 @@ export function generateGroupingPayload(format: CompetitionFormat, participants:
   const payload: GroupingPayload = {
     generatedAt: new Date().toISOString(),
     format,
+    config,
     groups,
   }
 
   if (format === 'group_then_knockout') {
-    const qualifiedPerGroup = 2
-    const qualified = groups.flatMap((group) => group.players.slice(0, qualifiedPerGroup))
-    const bracketSize = nearestPowerOf2(Math.min(64, qualified.length))
-    const seeded = qualified.slice(0, bracketSize)
+    const qualifiersPerGroup = config.qualifiersPerGroup ?? 1
+    const totalQualified = qualifiersPerGroup * config.groupCount
 
-    const pairs = Array.from({ length: Math.floor(bracketSize / 2) }, (_, i) => {
+    if (!isPowerOfTwo(totalQualified)) {
+      throw new Error('组数×每组晋级人数必须为 2 的次幂。')
+    }
+
+    const hasEnoughPerGroup = groups.every((group) => group.players.length >= qualifiersPerGroup)
+    if (!hasEnoughPerGroup) {
+      throw new Error('存在小组人数小于设定晋级人数，请调小组数或晋级人数。')
+    }
+
+    const qualified = groups.flatMap((group) => group.players.slice(0, qualifiersPerGroup))
+
+    const pairs = Array.from({ length: Math.floor(totalQualified / 2) }, (_, i) => {
       const homeSeed = i + 1
-      const awaySeed = bracketSize - i
+      const awaySeed = totalQualified - i
       return {
         slot: i + 1,
         homeSeed,
         awaySeed,
-        homePlayer: seeded[homeSeed - 1],
-        awayPlayer: seeded[awaySeed - 1],
+        homePlayer: qualified[homeSeed - 1],
+        awayPlayer: qualified[awaySeed - 1],
       }
     })
 
     payload.knockout = {
-      stage: bracketSize <= 2 ? '决赛' : bracketSize <= 4 ? '半决赛' : bracketSize <= 8 ? '1/4 决赛' : '淘汰赛首轮',
+      stage:
+        totalQualified <= 2
+          ? '决赛'
+          : totalQualified <= 4
+            ? '半决赛'
+            : totalQualified <= 8
+              ? '1/4 决赛'
+              : '淘汰赛首轮',
       matches: pairs,
     }
   }

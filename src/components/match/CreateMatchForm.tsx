@@ -52,13 +52,13 @@ export default function CreateMatchForm() {
         <div>
           <label htmlFor="format" className="mb-1 block text-sm text-slate-300">赛制 *</label>
           <select id="format" name="format" className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100">
-            <option value="group_only">分组比赛（≤256）</option>
-            <option value="group_then_knockout">前期分组后期淘汰（≤64）</option>
+            <option value="group_only">分组比赛</option>
+            <option value="group_then_knockout">前期分组后期淘汰</option>
           </select>
         </div>
         <div>
           <label htmlFor="maxParticipants" className="mb-1 block text-sm text-slate-300">最大人数 *</label>
-          <input id="maxParticipants" name="maxParticipants" type="number" min={2} max={256} defaultValue={16} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100" />
+          <input id="maxParticipants" name="maxParticipants" type="number" min={2} defaultValue={16} className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100" />
         </div>
       </div>
 

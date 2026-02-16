@@ -24,6 +24,7 @@ export async function getCurrentUser() {
       wins: true,
       losses: true,
       matchesPlayed: true,
+      role: true,
     },
   })
 }
