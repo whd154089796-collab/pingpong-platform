@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import MatchCard from '@/components/match/MatchCard'
 import { prisma } from '@/lib/prisma'
-import { ensureGroupingGenerated } from '@/app/matchs/actions'
 
 const statusLabelMap = {
   registration: '报名中',
@@ -18,16 +17,6 @@ export default async function MatchesPage() {
     orderBy: { dateTime: 'asc' },
   })
 
-  await Promise.all(matches.map((m) => ensureGroupingGenerated(m.id)))
-
-  const refreshed = await prisma.match.findMany({
-    include: {
-      _count: { select: { registrations: true } },
-      groupingResult: true,
-    },
-    orderBy: { dateTime: 'asc' },
-  })
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -37,9 +26,9 @@ export default async function MatchesPage() {
         </Link>
       </div>
 
-      {refreshed.length > 0 ? (
+      {matches.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {refreshed.map((match) => (
+          {matches.map((match) => (
             <MatchCard
               key={match.id}
               id={match.id}

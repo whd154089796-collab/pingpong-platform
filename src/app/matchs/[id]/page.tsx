@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import RegisterMatchButton from '@/components/match/RegisterMatchButton'
 import UnregisterMatchButton from '@/components/match/UnregisterMatchButton'
 import MatchSettingsForm from '@/components/match/MatchSettingsForm'
-import { ensureGroupingGenerated } from '@/app/matchs/actions'
+import GroupingAdminPanel from '@/components/match/GroupingAdminPanel'
 
 const statusLabelMap = {
   registration: '报名中',
@@ -16,8 +16,6 @@ const statusLabelMap = {
 
 export default async function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-
-  await ensureGroupingGenerated(id)
 
   const [match, currentUser] = await Promise.all([
     prisma.match.findUnique({
@@ -37,7 +35,9 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
 
   const now = new Date()
   const isCreator = currentUser?.id === match.createdBy
+  const isAdmin = currentUser?.role === 'admin'
   const canEditSettings = isCreator && now < match.registrationDeadline
+  const canManageGrouping = Boolean(currentUser && (isCreator || isAdmin) && now >= match.registrationDeadline)
   const canRegister = Boolean(currentUser) && match.status === 'registration' && now < match.registrationDeadline
   const alreadyRegistered = Boolean(currentUser && match.registrations.some((r) => r.userId === currentUser.id))
 
@@ -102,13 +102,7 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
             <p className="text-sm text-slate-300">你是比赛发起人，当前尚未报名，可手动点击报名加入参赛名单。</p>
           ) : null}
 
-          {currentUser && (
-            alreadyRegistered ? (
-              <UnregisterMatchButton matchId={match.id} />
-            ) : (
-              <RegisterMatchButton matchId={match.id} disabled={!canRegister} disabledText={now >= match.registrationDeadline ? '报名已截止' : '当前不可报名'} />
-            )
-          )}
+          {currentUser && (alreadyRegistered ? <UnregisterMatchButton matchId={match.id} /> : <RegisterMatchButton matchId={match.id} disabled={!canRegister} disabledText={now >= match.registrationDeadline ? '报名已截止' : '当前不可报名'} />)}
         </div>
       </div>
 
@@ -124,6 +118,14 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
               .slice(0, 16)}
           />
         </div>
+      )}
+
+      {canManageGrouping && !groupingPayload && (
+        <GroupingAdminPanel
+          matchId={match.id}
+          format={match.format}
+          defaultGroupCount={Math.max(1, Math.min(8, Math.ceil(match.registrations.length / (match.format === 'group_only' ? 6 : 4))))}
+        />
       )}
 
       <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
@@ -145,7 +147,7 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
       <div id="grouping" className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
         <h2 className="mb-4 text-xl font-bold text-white">分组结果</h2>
         {!groupingPayload ? (
-          <p className="text-slate-400">报名截止后将自动生成分组结果。</p>
+          <p className="text-slate-400">报名截止后由发起人或管理员手动生成并确认分组结果。</p>
         ) : (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
