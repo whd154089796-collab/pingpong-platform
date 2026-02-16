@@ -257,7 +257,4 @@ export async function ensureGroupingGenerated(matchId: string) {
       data: { groupingGeneratedAt: new Date(), status: MatchStatus.ongoing },
     }),
   ])
-
-  revalidatePath('/matchs')
-  revalidatePath(`/matchs/${match.id}`)
 }
