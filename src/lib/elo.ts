@@ -22,8 +22,8 @@ function clamp(num: number, min: number, max: number) {
 export function getDynamicK(eloRating: number, matchesPlayed: number) {
   let k = 20
 
-  if (matchesPlayed < 30) k = 40
-  else if (matchesPlayed < 100) k = 28
+  if (matchesPlayed < 10) k = 40
+  else if (matchesPlayed < 30) k = 28
 
   if (eloRating >= 2200) k -= 8
   else if (eloRating >= 2000) k -= 4
