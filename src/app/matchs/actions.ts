@@ -306,12 +306,9 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
       data: { status: MatchStatus.ongoing, groupingGeneratedAt: new Date() },
     }),
   ])
-<<<<<<< HEAD
-=======
 
   revalidatePath('/matchs')
   revalidatePath(`/matchs/${matchId}`)
 
   return { success: '分组结果已确认并发布到所有用户页面。' }
->>>>>>> 6f9292256d1bff6f18eba0d5560dd89a5a1f9e37
 }
