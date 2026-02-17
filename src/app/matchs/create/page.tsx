@@ -24,8 +24,11 @@ export default async function CreateMatchPage() {
       </Link>
 
       <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
-        <h1 className="mb-8 text-3xl font-bold text-white">发布比赛</h1>
-        <CreateMatchForm />
+        <h1 className="text-3xl font-bold text-white">发布比赛</h1>
+        <p className="mt-2 text-sm text-slate-300">创建后不会自动报名，发起人可后续手动报名。分组结果需在报名截止后由发起人/管理员确认发布。</p>
+        <div className="mt-8">
+          <CreateMatchForm />
+        </div>
       </div>
     </div>
   )
