@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { confirmGroupingAction, previewGroupingAction, type GroupingAdminState } from '@/app/matchs/actions'
+import KnockoutBracket from '@/components/match/KnockoutBracket'
 
 type Props = {
   matchId: string
@@ -20,7 +21,7 @@ export default function GroupingAdminPanel({ matchId, format, defaultGroupCount 
 
   const payload = previewState.previewJson ? (JSON.parse(previewState.previewJson) as {
     groups: Array<{ name: string; averagePoints: number; players: Array<{ id: string; nickname: string; points: number; eloRating: number }> }>
-    knockout?: { stage: string; matches: Array<{ slot: number; homeSeed: number; awaySeed: number; homePlayer?: { nickname: string }; awayPlayer?: { nickname: string } }> }
+    knockout?: { stage: string; bracketSize: number; rounds: Array<{ name: string; matches: Array<{ id: string; homeLabel: string; awayLabel: string }> }> }
   }) : null
 
   return (
@@ -73,13 +74,9 @@ export default function GroupingAdminPanel({ matchId, format, defaultGroupCount 
           </div>
 
           {payload.knockout && (
-            <div className="rounded-lg border border-slate-700 p-3">
-              <h4 className="mb-2 font-medium text-cyan-100">{payload.knockout.stage}</h4>
-              <div className="space-y-1 text-sm text-slate-200">
-                {payload.knockout.matches.map((m) => (
-                  <p key={m.slot}>对阵 {m.slot}: #{m.homeSeed} {m.homePlayer?.nickname ?? '待定'} vs #{m.awaySeed} {m.awayPlayer?.nickname ?? '待定'}</p>
-                ))}
-              </div>
+            <div className="space-y-2">
+              <h4 className="font-medium text-cyan-100">{payload.knockout.stage}（晋级后按签位填充）</h4>
+              <KnockoutBracket rounds={payload.knockout.rounds} />
             </div>
           )}
 

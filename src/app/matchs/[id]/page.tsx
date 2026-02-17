@@ -7,6 +7,7 @@ import RegisterMatchButton from '@/components/match/RegisterMatchButton'
 import UnregisterMatchButton from '@/components/match/UnregisterMatchButton'
 import MatchSettingsForm from '@/components/match/MatchSettingsForm'
 import GroupingAdminPanel from '@/components/match/GroupingAdminPanel'
+import KnockoutBracket from '@/components/match/KnockoutBracket'
 
 const statusLabelMap = {
   registration: '报名中',
@@ -44,7 +45,7 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
   const groupingPayload = (match.groupingResult?.payload ?? null) as
     | {
         groups: Array<{ name: string; averagePoints: number; players: Array<{ id: string; nickname: string; points: number; eloRating: number }> }>
-        knockout?: { stage: string; matches: Array<{ slot: number; homeSeed: number; awaySeed: number; homePlayer?: { id: string; nickname: string }; awayPlayer?: { id: string; nickname: string } }> }
+        knockout?: { stage: string; bracketSize: number; rounds: Array<{ name: string; matches: Array<{ id: string; homeLabel: string; awayLabel: string }> }> }
       }
     | null
 
@@ -170,15 +171,10 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
             </div>
 
             {groupingPayload.knockout && (
-              <div className="rounded-xl border border-slate-700 p-4">
-                <h3 className="mb-3 font-semibold text-cyan-100">{groupingPayload.knockout.stage}</h3>
-                <div className="space-y-2 text-sm text-slate-200">
-                  {groupingPayload.knockout.matches.map((m) => (
-                    <div key={m.slot} className="rounded-lg bg-slate-800/70 px-3 py-2">
-                      对阵 {m.slot}: #{m.homeSeed} {m.homePlayer?.nickname ?? '待定'} vs #{m.awaySeed} {m.awayPlayer?.nickname ?? '待定'}
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                <h3 className="font-semibold text-cyan-100">{groupingPayload.knockout.stage}（淘汰赛签表）</h3>
+                <p className="text-xs text-slate-400">当前展示为签位示意，待小组赛结束后将按晋级结果填充具体选手。</p>
+                <KnockoutBracket rounds={groupingPayload.knockout.rounds} />
               </div>
             )}
           </div>

@@ -7,6 +7,17 @@ export type SeedPlayer = {
   points: number
 }
 
+type BracketMatch = {
+  id: string
+  homeLabel: string
+  awayLabel: string
+}
+
+type BracketRound = {
+  name: string
+  matches: BracketMatch[]
+}
+
 type GroupingPayload = {
   generatedAt: string
   format: CompetitionFormat
@@ -21,13 +32,8 @@ type GroupingPayload = {
   }>
   knockout?: {
     stage: string
-    matches: Array<{
-      slot: number
-      homeSeed: number
-      awaySeed: number
-      homePlayer?: SeedPlayer
-      awayPlayer?: SeedPlayer
-    }>
+    bracketSize: number
+    rounds: BracketRound[]
   }
 }
 
@@ -49,6 +55,45 @@ function averagePoints(players: SeedPlayer[]) {
 
 function isPowerOfTwo(value: number) {
   return value > 0 && (value & (value - 1)) === 0
+}
+
+function buildBracketRounds(qualifiedLabels: string[]): BracketRound[] {
+  const size = qualifiedLabels.length
+  const rounds: BracketRound[] = []
+
+  let currentRoundMatches = Array.from({ length: size / 2 }, (_, i) => {
+    const seedA = i + 1
+    const seedB = size - i
+    return {
+      id: `R1-M${i + 1}`,
+      homeLabel: qualifiedLabels[seedA - 1],
+      awayLabel: qualifiedLabels[seedB - 1],
+    }
+  })
+
+  rounds.push({
+    name: size === 2 ? '决赛' : size === 4 ? '半决赛' : size === 8 ? '1/4 决赛' : '淘汰赛首轮',
+    matches: currentRoundMatches,
+  })
+
+  let roundIndex = 2
+  while (currentRoundMatches.length > 1) {
+    const nextMatches = Array.from({ length: currentRoundMatches.length / 2 }, (_, i) => ({
+      id: `R${roundIndex}-M${i + 1}`,
+      homeLabel: `胜者 ${currentRoundMatches[i * 2].id}`,
+      awayLabel: `胜者 ${currentRoundMatches[i * 2 + 1].id}`,
+    }))
+
+    rounds.push({
+      name: nextMatches.length === 1 ? '决赛' : nextMatches.length === 2 ? '半决赛' : `${nextMatches.length * 2} 强赛`,
+      matches: nextMatches,
+    })
+
+    currentRoundMatches = nextMatches
+    roundIndex += 1
+  }
+
+  return rounds
 }
 
 export function generateGroupingPayload(
@@ -91,19 +136,9 @@ export function generateGroupingPayload(
       throw new Error('存在小组人数小于设定晋级人数，请调小组数或晋级人数。')
     }
 
-    const qualified = groups.flatMap((group) => group.players.slice(0, qualifiersPerGroup))
-
-    const pairs = Array.from({ length: Math.floor(totalQualified / 2) }, (_, i) => {
-      const homeSeed = i + 1
-      const awaySeed = totalQualified - i
-      return {
-        slot: i + 1,
-        homeSeed,
-        awaySeed,
-        homePlayer: qualified[homeSeed - 1],
-        awayPlayer: qualified[awaySeed - 1],
-      }
-    })
+    const qualifiedLabels = groups.flatMap((group) =>
+      Array.from({ length: qualifiersPerGroup }, (_, idx) => `${group.name}第 ${idx + 1} 名`),
+    )
 
     payload.knockout = {
       stage:
@@ -114,7 +149,8 @@ export function generateGroupingPayload(
             : totalQualified <= 8
               ? '1/4 决赛'
               : '淘汰赛首轮',
-      matches: pairs,
+      bracketSize: totalQualified,
+      rounds: buildBracketRounds(qualifiedLabels),
     }
   }
 
