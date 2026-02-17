@@ -134,8 +134,10 @@ model Registration {
 model MatchResult {
   id               String     @id @default(cuid())
   matchId          String
-  winnerId         String
-  loserId          String
+  winnerId         String?
+  loserId          String?
+  winnerTeamIds    String[]   @default([])
+  loserTeamIds     String[]   @default([])
   score            Json
   reportedBy       String
   confirmed        Boolean    @default(false)
@@ -144,15 +146,15 @@ model MatchResult {
   createdAt        DateTime   @default(now())
 
   match            Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  winner           User       @relation("ResultWinner", fields: [winnerId], references: [id])
-  loser            User       @relation("ResultLoser", fields: [loserId], references: [id])
+  winner           User?      @relation("ResultWinner", fields: [winnerId], references: [id])
+  loser            User?      @relation("ResultLoser", fields: [loserId], references: [id])
   reporter         User       @relation("ResultReporter", fields: [reportedBy], references: [id])
   verifier         User?      @relation("ResultVerifier", fields: [verifierId], references: [id])
   eloHistory       EloHistory[]
 
-  @@unique([matchId, winnerId, loserId])
   @@index([winnerId])
   @@index([loserId])
+  @@index([matchId, createdAt])
 }
 
 model EloHistory {
