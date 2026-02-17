@@ -25,6 +25,11 @@ enum MatchStatus {
   finished
 }
 
+enum CompetitionFormat {
+  group_only
+  group_then_knockout
+}
+
 enum RegistrationRole {
   player
   captain
@@ -54,6 +59,7 @@ model User {
   id               String    @id @default(cuid())
   email            String    @unique
   nickname         String
+  bio              String?
   avatarUrl        String?
   points           Int       @default(0)
   eloRating        Int       @default(1200)
@@ -64,6 +70,7 @@ model User {
   matchesPlayed    Int       @default(0)
   authProviderId   String?   @unique
   hashedPassword   String?
+  emailVerifiedAt  DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -80,6 +87,8 @@ model User {
   reviewsGiven     Review[]             @relation("Reviewer")
   reviewsReceived  Review[]             @relation("Reviewee")
   auditLogs        AuditLog[]
+
+  verificationTokens EmailVerificationToken[]
 }
 
 model Match {
@@ -93,6 +102,9 @@ model Match {
   maxParticipants  Int
   createdBy        String
   rule             Json?
+  format           CompetitionFormat @default(group_only)
+  registrationDeadline DateTime
+  groupingGeneratedAt DateTime?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -101,6 +113,7 @@ model Match {
   results          MatchResult[]
   eloHistory       EloHistory[]
   reviews          Review[]
+  groupingResult   MatchGrouping?
 }
 
 model Registration {
@@ -273,6 +286,15 @@ model LeaderboardCache {
   @@index([userId, snapshotAt])
 }
 
+model MatchGrouping {
+  id         String   @id @default(cuid())
+  matchId    String   @unique
+  payload    Json
+  createdAt  DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}
+
 model RankingSnapshot {
   id               String    @id @default(cuid())
   scope            String
@@ -280,4 +302,18 @@ model RankingSnapshot {
   createdAt        DateTime  @default(now())
 
   @@index([scope, createdAt])
+}
+
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
