@@ -1,6 +1,6 @@
 'use server'
 
-import { CompetitionFormat, MatchStatus, MatchType } from '@prisma/client'
+import { CompetitionFormat, MatchStatus, MatchType, type Prisma } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
@@ -26,6 +26,56 @@ function parseDateTime(date: string, time: string) {
 function canManageGrouping(currentUser: Awaited<ReturnType<typeof getCurrentUser>>, createdBy: string) {
   if (!currentUser) return false
   return currentUser.id === createdBy || currentUser.role === 'admin'
+}
+
+
+async function applyConfirmedResult(tx: Prisma.TransactionClient, payload: {
+  matchId: string
+  winnerTeamIds: string[]
+  loserTeamIds: string[]
+}) {
+  const allParticipantIds = [...payload.winnerTeamIds, ...payload.loserTeamIds]
+  const users = await tx.user.findMany({
+    where: { id: { in: allParticipantIds } },
+    select: { id: true, eloRating: true, matchesPlayed: true, wins: true, losses: true },
+  })
+
+  if (users.length !== allParticipantIds.length) {
+    throw new Error('存在无效选手，无法结算 ELO。')
+  }
+
+  const userMap = new Map(users.map((u) => [u.id, u]))
+  const winnerTeam = payload.winnerTeamIds.map((id) => ({ userId: id, eloRating: userMap.get(id)!.eloRating, matchesPlayed: userMap.get(id)!.matchesPlayed }))
+  const loserTeam = payload.loserTeamIds.map((id) => ({ userId: id, eloRating: userMap.get(id)!.eloRating, matchesPlayed: userMap.get(id)!.matchesPlayed }))
+
+  const deltas = winnerTeam.length === 1 && loserTeam.length === 1
+    ? settleSinglesElo(winnerTeam[0], loserTeam[0])
+    : settleTeamElo(winnerTeam, loserTeam)
+
+  for (const delta of deltas) {
+    const base = userMap.get(delta.userId)
+    if (!base) continue
+
+    await tx.user.update({
+      where: { id: delta.userId },
+      data: {
+        eloRating: delta.after,
+        matchesPlayed: base.matchesPlayed + 1,
+        wins: payload.winnerTeamIds.includes(delta.userId) ? base.wins + 1 : base.wins,
+        losses: payload.loserTeamIds.includes(delta.userId) ? base.losses + 1 : base.losses,
+      },
+    })
+
+    await tx.eloHistory.create({
+      data: {
+        userId: delta.userId,
+        matchId: payload.matchId,
+        eloBefore: delta.before,
+        eloAfter: delta.after,
+        delta: delta.delta,
+      },
+    })
+  }
 }
 
 export async function createMatchAction(_: MatchFormState, formData: FormData): Promise<MatchFormState> {
@@ -315,6 +365,121 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
 }
 
 
+export async function submitGroupMatchResultAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return { error: '请先登录。' }
+
+  const opponentId = String(formData.get('opponentId') ?? '').trim()
+  const didWin = String(formData.get('didWin') ?? 'true') === 'true'
+  const scoreText = String(formData.get('score') ?? '').trim()
+
+  if (!opponentId || opponentId === currentUser.id) return { error: '请选择有效对手。' }
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      registrations: { select: { userId: true } },
+      groupingResult: true,
+    },
+  })
+
+  if (!match) return { error: '比赛不存在。' }
+  if (match.type !== 'single') return { error: '当前仅支持单打在站内流程化登记。' }
+  if (!match.groupingResult) return { error: '尚未生成分组，无法登记结果。' }
+
+  const registrationSet = new Set(match.registrations.map((r) => r.userId))
+  if (!registrationSet.has(currentUser.id) || !registrationSet.has(opponentId)) {
+    return { error: '你或对手未报名该比赛。' }
+  }
+
+  const payload = match.groupingResult.payload as { groups?: Array<{ players: Array<{ id: string }> }> }
+  const inSameGroup = Boolean(payload.groups?.some((g) => {
+    const ids = g.players.map((p) => p.id)
+    return ids.includes(currentUser.id) && ids.includes(opponentId)
+  }))
+  if (!inSameGroup) return { error: '当前阶段只能登记与你同组对手的比赛。' }
+
+  const exists = await prisma.matchResult.findFirst({
+    where: {
+      matchId,
+      confirmed: false,
+      OR: [
+        { winnerTeamIds: { equals: [currentUser.id] }, loserTeamIds: { equals: [opponentId] } },
+        { winnerTeamIds: { equals: [opponentId] }, loserTeamIds: { equals: [currentUser.id] } },
+      ],
+    },
+  })
+  if (exists) return { error: '该对局已有待确认登记。' }
+
+  const winnerTeamIds = didWin ? [currentUser.id] : [opponentId]
+  const loserTeamIds = didWin ? [opponentId] : [currentUser.id]
+
+  await prisma.matchResult.create({
+    data: {
+      matchId,
+      winnerId: winnerTeamIds[0],
+      loserId: loserTeamIds[0],
+      winnerTeamIds,
+      loserTeamIds,
+      score: scoreText ? { text: scoreText } : { text: '' },
+      reportedBy: currentUser.id,
+      confirmed: false,
+    },
+  })
+
+  revalidatePath(`/matchs/${matchId}`)
+  return { success: '已登记，等待对手或管理员确认。' }
+}
+
+export async function confirmMatchResultAction(matchId: string, resultId: string): Promise<MatchFormState> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return { error: '请先登录。' }
+
+  const result = await prisma.matchResult.findUnique({
+    where: { id: resultId },
+    include: { match: true },
+  })
+
+  if (!result || result.matchId !== matchId) return { error: '赛果不存在。' }
+  if (result.confirmed) return { success: '该赛果已确认。' }
+
+  const isOpponent = result.winnerTeamIds.includes(currentUser.id) || result.loserTeamIds.includes(currentUser.id)
+  const isManager = result.match.createdBy === currentUser.id || currentUser.role === 'admin'
+  if (!isOpponent && !isManager) return { error: '仅对阵双方或管理员可确认。' }
+  if (result.reportedBy === currentUser.id && !isManager) return { error: '登记方需由对手确认，或由管理员确认。' }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const latest = await tx.matchResult.findUnique({ where: { id: resultId } })
+      if (!latest) throw new Error('赛果不存在。')
+      if (latest.confirmed) return
+
+      await applyConfirmedResult(tx, {
+        matchId,
+        winnerTeamIds: latest.winnerTeamIds,
+        loserTeamIds: latest.loserTeamIds,
+      })
+
+      await tx.matchResult.update({
+        where: { id: resultId },
+        data: {
+          confirmed: true,
+          resultVerifiedAt: new Date(),
+          verifierId: currentUser.id,
+        },
+      })
+    })
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : '确认失败。' }
+  }
+
+  revalidatePath('/rankings')
+  revalidatePath('/profile')
+  revalidatePath(`/matchs/${matchId}`)
+  return { success: '确认成功，结果已生效并更新积分。' }
+}
+
+
 function parseTeamIds(raw: FormDataEntryValue | null) {
   const text = String(raw ?? '').trim()
   return Array.from(new Set(text.split(/[\s,，]+/).map((id) => id.trim()).filter(Boolean)))
@@ -367,29 +532,12 @@ export async function reportMatchResultAction(matchId: string, _: MatchFormState
 
   const users = await prisma.user.findMany({
     where: { id: { in: allParticipantIds } },
-    select: { id: true, eloRating: true, matchesPlayed: true, wins: true, losses: true },
+    select: { id: true },
   })
 
   if (users.length !== allParticipantIds.length) {
     return { error: '存在无效选手 ID，请检查后重试。' }
   }
-
-  const userMap = new Map(users.map((u) => [u.id, u]))
-
-  const winnerTeam = winnerTeamIds.map((id) => {
-    const found = userMap.get(id)
-    if (!found) throw new Error('内部错误：缺少胜方选手。')
-    return { userId: found.id, eloRating: found.eloRating, matchesPlayed: found.matchesPlayed }
-  })
-
-  const loserTeam = loserTeamIds.map((id) => {
-    const found = userMap.get(id)
-    if (!found) throw new Error('内部错误：缺少负方选手。')
-    return { userId: found.id, eloRating: found.eloRating, matchesPlayed: found.matchesPlayed }
-  })
-
-  const deltas =
-    match.type === 'single' ? settleSinglesElo(winnerTeam[0], loserTeam[0]) : settleTeamElo(winnerTeam, loserTeam)
 
   const score = scoreText ? { text: scoreText } : { text: '' }
   const winnerAnchorId = winnerTeamIds[0] ?? null
@@ -411,30 +559,7 @@ export async function reportMatchResultAction(matchId: string, _: MatchFormState
       },
     })
 
-    for (const delta of deltas) {
-      const base = userMap.get(delta.userId)
-      if (!base) continue
-
-      await tx.user.update({
-        where: { id: delta.userId },
-        data: {
-          eloRating: delta.after,
-          matchesPlayed: base.matchesPlayed + 1,
-          wins: winnerTeamIds.includes(delta.userId) ? base.wins + 1 : base.wins,
-          losses: loserTeamIds.includes(delta.userId) ? base.losses + 1 : base.losses,
-        },
-      })
-
-      await tx.eloHistory.create({
-        data: {
-          userId: delta.userId,
-          matchId,
-          eloBefore: delta.before,
-          eloAfter: delta.after,
-          delta: delta.delta,
-        },
-      })
-    }
+    await applyConfirmedResult(tx, { matchId, winnerTeamIds, loserTeamIds })
   })
 
   revalidatePath('/rankings')

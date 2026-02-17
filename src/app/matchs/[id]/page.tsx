@@ -28,6 +28,12 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
           orderBy: { createdAt: 'asc' },
         },
         groupingResult: true,
+        results: {
+          include: {
+            reporter: { select: { id: true, nickname: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     }),
     getCurrentUser(),
@@ -123,12 +129,63 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
       )}
 
 
-      {Boolean(currentUser && (isCreator || isAdmin) && match.status !== 'registration') && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
-          <h2 className="mb-4 text-xl font-bold text-white">赛果录入（发起人/管理员）</h2>
-          <ReportResultForm matchId={match.id} matchType={match.type} />
-        </div>
-      )}
+      {Boolean(currentUser && match.status !== 'registration' && groupingPayload) && (() => {
+        const myGroup = groupingPayload.groups.find((group) => group.players.some((player) => player.id === currentUser.id))
+        const opponents = (myGroup?.players ?? [])
+          .filter((player) => player.id !== currentUser.id)
+          .map((player) => {
+            const played = match.results.some((result) => {
+              if (!result.confirmed) return false
+              const ids = [...result.winnerTeamIds, ...result.loserTeamIds]
+              return ids.includes(currentUser.id) && ids.includes(player.id)
+            })
+            return { id: player.id, nickname: player.nickname, played }
+          })
+
+        const pendingResults = match.results
+          .filter((result) => {
+            if (result.confirmed) return false
+            const ids = [...result.winnerTeamIds, ...result.loserTeamIds]
+            return Boolean(
+              ids.includes(currentUser.id) ||
+                isAdmin ||
+                isCreator,
+            )
+          })
+          .map((result) => {
+            const winnerLabel = result.winnerTeamIds
+              .map((id) => match.registrations.find((r) => r.userId === id)?.user.nickname ?? id)
+              .join(' / ')
+            const loserLabel = result.loserTeamIds
+              .map((id) => match.registrations.find((r) => r.userId === id)?.user.nickname ?? id)
+              .join(' / ')
+
+            return {
+              id: result.id,
+              reporterId: result.reporter.id,
+              reporterName: result.reporter.nickname,
+              winnerLabel,
+              loserLabel,
+              scoreText: typeof result.score === 'object' && result.score && 'text' in result.score ? String(result.score.text ?? '') : '',
+            }
+          })
+
+        const completedCount = opponents.filter((o) => o.played).length
+
+        return (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
+            <h2 className="mb-2 text-xl font-bold text-white">我的比赛进程</h2>
+            <p className="mb-4 text-sm text-slate-400">当前进度：已完成 {completedCount}/{opponents.length} 场组内对局。每场需由对手或管理员确认后生效并推进进程。</p>
+            {match.type !== 'single' ? (
+              <p className="text-sm text-amber-300">当前流程化登记先支持单打。双打/团体请由管理员使用赛果录入接口。</p>
+            ) : myGroup ? (
+              <ReportResultForm matchId={match.id} opponents={opponents} pendingResults={pendingResults} />
+            ) : (
+              <p className="text-sm text-slate-400">你当前不在任何分组中，暂无法登记组内赛果。</p>
+            )}
+          </div>
+        )
+      })()}
 
       {canManageGrouping && !groupingPayload && (
         <GroupingAdminPanel
