@@ -1,27 +1,8 @@
 import Link from 'next/link'
 import { CalendarRange, Medal, ShieldCheck, Sparkles } from 'lucide-react'
+import { MatchStatus } from '@prisma/client'
 import MatchCard from '@/components/match/MatchCard'
-
-const latestMatches = [
-  {
-    id: '1',
-    title: '春季联赛',
-    date: '2026-03-15',
-    location: '体育馆',
-    participants: 8,
-    maxParticipants: 16,
-    status: '报名中' as const,
-  },
-  {
-    id: '2',
-    title: '校友挑战赛',
-    date: '2026-03-20',
-    location: '东区球馆',
-    participants: 12,
-    maxParticipants: 16,
-    status: '进行中' as const,
-  },
-]
+import { prisma } from '@/lib/prisma'
 
 const quickActions = [
   { href: '/matchs', label: '进入比赛大厅', desc: '查看全部赛事', icon: CalendarRange },
@@ -29,7 +10,22 @@ const quickActions = [
   { href: '/matchs/create', label: '发布新比赛', desc: '快速创建赛事', icon: Sparkles },
 ]
 
-export default function Home() {
+const statusLabelMap: Record<MatchStatus, '报名中' | '进行中' | '已结束'> = {
+  registration: '报名中',
+  ongoing: '进行中',
+  finished: '已结束',
+}
+
+export default async function Home() {
+  const latestMatches = await prisma.match.findMany({
+    orderBy: [{ dateTime: 'asc' }, { createdAt: 'desc' }],
+    take: 6,
+    include: {
+      _count: { select: { registrations: true } },
+      groupingResult: { select: { id: true } },
+    },
+  })
+
   return (
     <div className="space-y-10">
       <section className="relative overflow-hidden rounded-3xl border border-slate-700/70 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 p-8 shadow-xl shadow-black/20 md:p-10">
@@ -85,11 +81,28 @@ export default function Home() {
             查看全部 →
           </Link>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {latestMatches.map((match) => (
-            <MatchCard key={match.id} {...match} />
-          ))}
-        </div>
+
+        {latestMatches.length === 0 ? (
+          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center text-slate-300">
+            暂无比赛，快去发布第一场比赛吧。
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {latestMatches.map((match) => (
+              <MatchCard
+                key={match.id}
+                id={match.id}
+                title={match.title}
+                date={match.dateTime.toLocaleDateString('zh-CN')}
+                location={match.location ?? '待定'}
+                participants={match._count.registrations}
+                maxParticipants={match.maxParticipants}
+                status={statusLabelMap[match.status]}
+                hasGrouping={Boolean(match.groupingResult)}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )
