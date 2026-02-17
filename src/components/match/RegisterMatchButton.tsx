@@ -1,0 +1,27 @@
+'use client'
+
+import { useActionState } from 'react'
+import { type MatchFormState, registerMatchAction } from '@/app/matchs/actions'
+
+type Props = {
+  matchId: string
+  disabled?: boolean
+  disabledText?: string
+}
+
+const initialState: MatchFormState = {}
+
+export default function RegisterMatchButton({ matchId, disabled, disabledText }: Props) {
+  const registerWithId = registerMatchAction.bind(null, matchId)
+  const [state, formAction, pending] = useActionState(registerWithId, initialState)
+
+  return (
+    <form action={formAction} className="space-y-2">
+      <button disabled={disabled || pending} className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-50">
+        {disabled ? disabledText ?? '不可报名' : pending ? '报名中...' : '立即报名'}
+      </button>
+      {state.error && <p className="text-sm text-rose-300">{state.error}</p>}
+      {state.success && <p className="text-sm text-emerald-300">{state.success}</p>}
+    </form>
+  )
+}
