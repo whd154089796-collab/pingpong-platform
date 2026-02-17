@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <style>
+    .entity { fill:#ffffff; stroke:#2b6cb0; stroke-width:2; }
+    .title { font: 18px sans-serif; fill:#2b6cb0; font-weight:700 }
+    .field { font: 12px sans-serif; fill:#1a202c }
+    .rel { stroke:#4a5568; stroke-width:1.5; marker-end:url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 L2,3 z" fill="#4a5568" />
+    </marker>
+  </defs>
+
+  <!-- Entities -->
+  <g transform="translate(60,60)">
+    <rect class="entity" x="0" y="0" width="260" height="120" rx="6"/>
+    <text class="title" x="12" y="26">User</text>
+    <text class="field" x="12" y="52">id (PK)</text>
+    <text class="field" x="12" y="70">email</text>
+    <text class="field" x="12" y="88">nickname</text>
+  </g>
+
+  <g transform="translate(420,60)">
+    <rect class="entity" x="0" y="0" width="260" height="120" rx="6"/>
+    <text class="title" x="12" y="26">Match</text>
+    <text class="field" x="12" y="52">id (PK)</text>
+    <text class="field" x="12" y="70">title</text>
+    <text class="field" x="12" y="88">dateTime</text>
+  </g>
+
+  <g transform="translate(240,220)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="24">Registration</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">(matchId, userId) unique</text>
+  </g>
+
+  <g transform="translate(820,60)">
+    <rect class="entity" x="0" y="0" width="300" height="140" rx="6"/>
+    <text class="title" x="12" y="26">MatchResult</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">winnerId, loserId</text>
+    <text class="field" x="12" y="84">reportedBy, verifierId</text>
+  </g>
+
+  <g transform="translate(1120,60)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">EloHistory</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">eloBefore → eloAfter</text>
+  </g>
+
+  <g transform="translate(60,340)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">PointsTransaction</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">amount, balanceAfter</text>
+  </g>
+
+  <g transform="translate(420,340)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">Reward</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">pointsCost, stock</text>
+  </g>
+
+  <g transform="translate(820,340)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">RewardRedemption</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">pointsSpent</text>
+  </g>
+
+  <g transform="translate(60,520)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">Badge / UserBadge</text>
+    <text class="field" x="12" y="48">Badge.id, UserBadge (userId,badgeId)</text>
+  </g>
+
+  <g transform="translate(420,520)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">Review</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">reviewerId, revieweeId</text>
+  </g>
+
+  <g transform="translate(820,520)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">AuditLog</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">entityType, entityId</text>
+  </g>
+
+  <g transform="translate(1120,340)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">LeaderboardCache</text>
+    <text class="field" x="12" y="48">scope, rank, userId</text>
+  </g>
+
+  <g transform="translate(1120,520)">
+    <rect class="entity" x="0" y="0" width="260" height="90" rx="6"/>
+    <text class="title" x="12" y="26">RankingSnapshot</text>
+    <text class="field" x="12" y="48">id (PK)</text>
+    <text class="field" x="12" y="66">scope, payload</text>
+  </g>
+
+  <!-- Relationships (lines) -->
+  <line class="rel" x1="320" y1="120" x2="320" y2="240" /> <!-- Match -> Registration -->
+  <line class="rel" x1="200" y1="120" x2="320" y2="240" /> <!-- User -> Registration -->
+
+  <line class="rel" x1="680" y1="120" x2="820" y2="120" /> <!-- Match -> MatchResult -->
+  <line class="rel" x1="160" y1="120" x2="820" y2="120" /> <!-- User -> MatchResult (winner/loser/report) -->
+
+  <line class="rel" x1="1120" y1="120" x2="1260" y2="120" /> <!-- MatchResult -> EloHistory -->
+  <line class="rel" x1="200" y1="200" x2="1120" y2="120" /> <!-- User -> EloHistory -->
+
+  <line class="rel" x1="200" y1="320" x2="200" y2="420" /> <!-- User -> PointsTransaction -->
+  <line class="rel" x1="560" y1="420" x2="560" y2="420" /> <!-- Reward -> RewardRedemption (visual) -->
+  <line class="rel" x1="200" y1="420" x2="560" y2="420" /> <!-- User -> RewardRedemption -->
+
+  <line class="rel" x1="200" y1="520" x2="200" y2="610" /> <!-- User -> Badge/UserBadge -->
+  <line class="rel" x1="480" y1="520" x2="480" y2="610" /> <!-- User -> Review -->
+  <line class="rel" x1="840" y1="520" x2="840" y2="610" /> <!-- User -> AuditLog -->
+
+  <line class="rel" x1="1240" y1="420" x2="1240" y2="520" /> <!-- LeaderboardCache -> RankingSnapshot -->
+
+  <text x="20" y="980" font-size="12" fill="#4a5568">Generated diagram (simplified) from prisma/schema.prisma — boxes show key fields.</text>
+</svg>
