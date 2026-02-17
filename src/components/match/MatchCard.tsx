@@ -9,6 +9,7 @@ interface MatchCardProps {
   participants: number
   maxParticipants: number
   status: '报名中' | '进行中' | '已结束'
+  hasGrouping?: boolean
 }
 
 export default function MatchCard({
@@ -18,21 +19,22 @@ export default function MatchCard({
   location,
   participants,
   maxParticipants,
-  status
+  status,
+  hasGrouping,
 }: MatchCardProps) {
   const statusStyles = {
-    '报名中': {
+    报名中: {
       badge: 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40',
-      glow: 'hover:shadow-emerald-500/15'
+      glow: 'hover:shadow-emerald-500/15',
     },
-    '进行中': {
+    进行中: {
       badge: 'bg-sky-500/20 text-sky-300 ring-1 ring-sky-400/40',
-      glow: 'hover:shadow-sky-500/15'
+      glow: 'hover:shadow-sky-500/15',
     },
-    '已结束': {
+    已结束: {
       badge: 'bg-slate-500/25 text-slate-300 ring-1 ring-slate-300/30',
-      glow: 'hover:shadow-slate-500/10'
-    }
+      glow: 'hover:shadow-slate-500/10',
+    },
   }
 
   const participationRate = Math.min((participants / maxParticipants) * 100, 100)
@@ -45,9 +47,7 @@ export default function MatchCard({
 
       <div className="relative">
         <div className="mb-5 flex items-start justify-between gap-3">
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${statusStyles[status].badge}`}
-          >
+          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${statusStyles[status].badge}`}>
             {status}
           </span>
           <div className="flex items-center gap-1.5 text-sm text-slate-300">
@@ -73,25 +73,21 @@ export default function MatchCard({
               <span>{Math.round(participationRate)}%</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-700/90">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-500"
-                style={{ width: `${participationRate}%` }}
-              />
+              <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-500" style={{ width: `${participationRate}%` }} />
             </div>
           </div>
         </div>
 
         <div className="flex gap-2.5">
-          <Link
-            href={`/matches/${id}`}
-            className="flex-1 rounded-lg border border-slate-500/80 py-2.5 text-center text-sm font-medium text-slate-100 transition hover:border-cyan-400/70 hover:bg-cyan-500/10"
-          >
+          <Link href={`/matchs/${id}`} className="flex-1 rounded-lg border border-slate-500/80 py-2.5 text-center text-sm font-medium text-slate-100 transition hover:border-cyan-400/70 hover:bg-cyan-500/10">
             查看详情
           </Link>
-          {status === '报名中' && (
-            <button className="flex-1 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 py-2.5 text-sm font-semibold text-white shadow-md shadow-cyan-900/40 transition hover:brightness-110">
-              立即报名
-            </button>
+          {hasGrouping ? (
+            <Link href={`/matchs/${id}#grouping`} className="flex-1 rounded-lg bg-slate-700/80 py-2.5 text-center text-sm font-semibold text-cyan-100 transition hover:bg-slate-700">
+              查看分组
+            </Link>
+          ) : (
+            status === '报名中' && <div className="flex-1 rounded-lg bg-slate-700/60 py-2.5 text-center text-sm text-slate-300">报名中</div>
           )}
         </div>
       </div>
