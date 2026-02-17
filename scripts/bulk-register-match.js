@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 /**
  * 批量为指定比赛补足报名人数（默认标题：测试2，默认总人数：128）
