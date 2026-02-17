@@ -8,6 +8,7 @@ import UnregisterMatchButton from '@/components/match/UnregisterMatchButton'
 import MatchSettingsForm from '@/components/match/MatchSettingsForm'
 import GroupingAdminPanel from '@/components/match/GroupingAdminPanel'
 import KnockoutBracket from '@/components/match/KnockoutBracket'
+import ReportResultForm from '@/components/match/ReportResultForm'
 
 const statusLabelMap = {
   registration: '报名中',
@@ -118,6 +119,14 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
               .toISOString()
               .slice(0, 16)}
           />
+        </div>
+      )}
+
+
+      {Boolean(currentUser && (isCreator || isAdmin) && match.status !== 'registration') && (
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
+          <h2 className="mb-4 text-xl font-bold text-white">赛果录入（发起人/管理员）</h2>
+          <ReportResultForm matchId={match.id} matchType={match.type} />
         </div>
       )}
 

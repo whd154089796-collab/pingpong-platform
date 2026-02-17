@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { generateGroupingPayload } from '@/lib/tournament'
+import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
 
 export type MatchFormState = {
   error?: string
@@ -311,4 +312,134 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
   revalidatePath(`/matchs/${matchId}`)
 
   return { success: '分组结果已确认并发布到所有用户页面。' }
+}
+
+
+function parseTeamIds(raw: FormDataEntryValue | null) {
+  const text = String(raw ?? '').trim()
+  return Array.from(new Set(text.split(/[\s,，]+/).map((id) => id.trim()).filter(Boolean)))
+}
+
+export async function reportMatchResultAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return { error: '请先登录。' }
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      registrations: {
+        select: { userId: true },
+      },
+    },
+  })
+
+  if (!match) return { error: '比赛不存在。' }
+
+  const isManager = currentUser.id === match.createdBy || currentUser.role === 'admin'
+  if (!isManager) return { error: '仅发起人或管理员可录入赛果。' }
+
+  const winnerTeamIds = parseTeamIds(formData.get('winnerTeamIds'))
+  const loserTeamIds = parseTeamIds(formData.get('loserTeamIds'))
+  const scoreText = String(formData.get('score') ?? '').trim()
+
+  if (winnerTeamIds.length === 0 || loserTeamIds.length === 0) {
+    return { error: '请填写胜方与负方成员。' }
+  }
+
+  const idSet = new Set([...winnerTeamIds, ...loserTeamIds])
+  if (idSet.size !== winnerTeamIds.length + loserTeamIds.length) {
+    return { error: '同一名选手不能同时出现在胜负双方。' }
+  }
+
+  if (match.type === 'single' && (winnerTeamIds.length !== 1 || loserTeamIds.length !== 1)) {
+    return { error: '单打赛果必须是一对一。' }
+  }
+
+  if (match.type === 'double' && (winnerTeamIds.length !== 2 || loserTeamIds.length !== 2)) {
+    return { error: '双打赛果必须是 2v2。' }
+  }
+
+  const registrationSet = new Set(match.registrations.map((r) => r.userId))
+  const allParticipantIds = [...winnerTeamIds, ...loserTeamIds]
+  if (allParticipantIds.some((id) => !registrationSet.has(id))) {
+    return { error: '赛果中存在未报名选手。' }
+  }
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: allParticipantIds } },
+    select: { id: true, eloRating: true, matchesPlayed: true, wins: true, losses: true },
+  })
+
+  if (users.length !== allParticipantIds.length) {
+    return { error: '存在无效选手 ID，请检查后重试。' }
+  }
+
+  const userMap = new Map(users.map((u) => [u.id, u]))
+
+  const winnerTeam = winnerTeamIds.map((id) => {
+    const found = userMap.get(id)
+    if (!found) throw new Error('内部错误：缺少胜方选手。')
+    return { userId: found.id, eloRating: found.eloRating, matchesPlayed: found.matchesPlayed }
+  })
+
+  const loserTeam = loserTeamIds.map((id) => {
+    const found = userMap.get(id)
+    if (!found) throw new Error('内部错误：缺少负方选手。')
+    return { userId: found.id, eloRating: found.eloRating, matchesPlayed: found.matchesPlayed }
+  })
+
+  const deltas =
+    match.type === 'single' ? settleSinglesElo(winnerTeam[0], loserTeam[0]) : settleTeamElo(winnerTeam, loserTeam)
+
+  const score = scoreText ? { text: scoreText } : { text: '' }
+  const winnerAnchorId = winnerTeamIds[0] ?? null
+  const loserAnchorId = loserTeamIds[0] ?? null
+
+  await prisma.$transaction(async (tx) => {
+    await tx.matchResult.create({
+      data: {
+        matchId,
+        winnerId: winnerAnchorId,
+        loserId: loserAnchorId,
+        winnerTeamIds,
+        loserTeamIds,
+        score,
+        reportedBy: currentUser.id,
+        confirmed: true,
+        resultVerifiedAt: new Date(),
+        verifierId: currentUser.id,
+      },
+    })
+
+    for (const delta of deltas) {
+      const base = userMap.get(delta.userId)
+      if (!base) continue
+
+      await tx.user.update({
+        where: { id: delta.userId },
+        data: {
+          eloRating: delta.after,
+          matchesPlayed: base.matchesPlayed + 1,
+          wins: winnerTeamIds.includes(delta.userId) ? base.wins + 1 : base.wins,
+          losses: loserTeamIds.includes(delta.userId) ? base.losses + 1 : base.losses,
+        },
+      })
+
+      await tx.eloHistory.create({
+        data: {
+          userId: delta.userId,
+          matchId,
+          eloBefore: delta.before,
+          eloAfter: delta.after,
+          delta: delta.delta,
+        },
+      })
+    }
+  })
+
+  revalidatePath('/rankings')
+  revalidatePath(`/matchs/${matchId}`)
+  revalidatePath('/profile')
+
+  return { success: '赛果已记录，ELO 已按弹性 K 值更新。' }
 }
