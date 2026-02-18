@@ -1,0 +1,90 @@
+erDiagram
+    User {
+        String id PK
+        String email
+        String nickname
+        Int points
+        Int eloRating
+        UserRole role
+    }
+    Match {
+        String id PK
+        String title
+        MatchType type
+        MatchStatus status
+        DateTime dateTime
+    }
+    Registration {
+        String id PK
+        RegistrationRole role
+        RegistrationStatus status
+        DateTime createdAt
+    }
+    MatchResult {
+        String id PK
+        Json score
+        Boolean confirmed
+    }
+    EloHistory {
+        String id PK
+        Int eloBefore
+        Int eloAfter
+        Int delta
+    }
+    PointsTransaction {
+        String id PK
+        Int amount
+        PointsTransactionType type
+    }
+    Reward {
+        String id PK
+        Int pointsCost
+        RewardType type
+    }
+    RewardRedemption {
+        String id PK
+        Int pointsSpent
+    }
+    Badge {
+        String id PK
+    }
+    UserBadge {
+        String id PK
+    }
+    Review {
+        String id PK
+        Json scores
+    }
+    AuditLog {
+        String id PK
+        String entityType
+    }
+    LeaderboardCache {
+        String id PK
+        String scope
+    }
+    RankingSnapshot {
+        String id PK
+        String scope
+    }
+
+    User ||--o{ Registration : "注册"
+    Match ||--o{ Registration : "包含注册"
+    User ||--o{ MatchResult : "胜者"
+    User ||--o{ MatchResult : "败者"
+    User ||--o{ MatchResult : "报告者"
+    User ||--o{ MatchResult : "验证者"
+    Match ||--|{ MatchResult : "产生比赛结果"
+    MatchResult ||--o{ EloHistory : "触发"
+    User ||--o{ EloHistory : "记录"
+    User ||--o{ PointsTransaction : "积分记录"
+    User ||--o{ RewardRedemption : "兑换"
+    Reward ||--o{ RewardRedemption : "有兑换"
+    User ||--o{ UserBadge : "获得徽章"
+    Badge ||--o{ UserBadge : "授予给用户"
+    User ||--o{ Review : "撰写"
+    User ||--o{ Review : "收到"
+    Match ||--o{ Review : "被评价"
+    User ||--o{ AuditLog : "执行操作"
+    User ||--o{ LeaderboardCache : "缓存于"
+    User ||--o{ RankingSnapshot : "汇总于"
