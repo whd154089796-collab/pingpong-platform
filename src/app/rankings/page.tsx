@@ -1,118 +1,102 @@
-'use client'
-
-import { useState } from 'react'
 import Link from 'next/link'
-import { Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Trophy } from 'lucide-react'
+import { prisma } from '@/lib/prisma'
 
-const MOCK_RANKINGS = [
-  { id: '3', nickname: '王五', eloRating: 1750, wins: 28, losses: 7, trend: 'up' as const },
-  { id: '8', nickname: '郑十', eloRating: 1710, wins: 25, losses: 9, trend: 'up' as const },
-  { id: '1', nickname: '张三', eloRating: 1680, wins: 22, losses: 10, trend: 'same' as const },
-  { id: '5', nickname: '陈七', eloRating: 1600, wins: 20, losses: 14, trend: 'down' as const },
-  { id: '6', nickname: '周八', eloRating: 1560, wins: 18, losses: 13, trend: 'up' as const },
-  { id: '2', nickname: '李四', eloRating: 1520, wins: 15, losses: 15, trend: 'down' as const },
-  { id: '7', nickname: '吴九', eloRating: 1490, wins: 13, losses: 16, trend: 'same' as const },
-  { id: '4', nickname: '赵六', eloRating: 1430, wins: 10, losses: 18, trend: 'down' as const },
-]
+type TabKey = 'elo' | 'points' | 'honors'
 
-export default function RankingsPage() {
-  const [tab, setTab] = useState<'elo' | 'points' | 'honors'>('elo')
+function rankBadge(rank: number) {
+  if (rank === 1) return <span className="text-2xl">🥇</span>
+  if (rank === 2) return <span className="text-2xl">🥈</span>
+  if (rank === 3) return <span className="text-2xl">🥉</span>
+  return <span className="w-8 text-center font-mono text-lg text-gray-500">{rank}</span>
+}
 
-  const trendIcon = (trend: 'up' | 'down' | 'same') => {
-    if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-400" />
-    if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-400" />
-    return <Minus className="w-4 h-4 text-gray-500" />
-  }
+export default async function RankingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const { tab: rawTab } = await searchParams
+  const tab: TabKey = rawTab === 'points' || rawTab === 'honors' ? rawTab : 'elo'
 
-  const rankBadge = (rank: number) => {
-    if (rank === 1) return <span className="text-2xl">🥇</span>
-    if (rank === 2) return <span className="text-2xl">🥈</span>
-    if (rank === 3) return <span className="text-2xl">🥉</span>
-    return <span className="text-gray-500 font-mono text-lg w-8 text-center">{rank}</span>
-  }
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      nickname: true,
+      eloRating: true,
+      points: true,
+      wins: true,
+      losses: true,
+      awardedBadges: { select: { id: true } },
+    },
+  })
+
+  const sorted = [...users].sort((a, b) => {
+    if (tab === 'elo') return b.eloRating - a.eloRating || b.points - a.points
+    if (tab === 'points') return b.points - a.points || b.eloRating - a.eloRating
+    return b.awardedBadges.length - a.awardedBadges.length || b.eloRating - a.eloRating
+  })
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8">
       <div className="flex items-center gap-3">
-        <Trophy className="w-8 h-8 text-yellow-400" />
+        <Trophy className="h-8 w-8 text-yellow-400" />
         <h1 className="text-3xl font-bold text-white">排行榜</h1>
       </div>
 
-      {/* Tab 切换 */}
       <div className="flex gap-2 border-b border-gray-600">
         {[
           { key: 'elo', label: 'ELO 排名' },
           { key: 'points', label: '积分排名' },
           { key: 'honors', label: '荣誉榜' },
         ].map(({ key, label }) => (
-          <button
+          <Link
             key={key}
-            onClick={() => setTab(key as 'elo' | 'points' | 'honors')}
-            className={`px-6 py-3 font-medium transition border-b-2 -mb-px ${
-              tab === key
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300'
+            href={`/rankings?tab=${key}`}
+            className={`-mb-px border-b-2 px-6 py-3 font-medium transition ${
+              tab === key ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-400 hover:text-gray-300'
             }`}
           >
             {label}
-          </button>
+          </Link>
         ))}
       </div>
 
-      {/* 排名表格 */}
-      <div className="bg-gray-700 border border-gray-600 rounded-lg overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-gray-600 bg-gray-700">
         <table className="w-full">
           <thead className="bg-gray-800">
             <tr className="text-sm text-gray-300">
-              <th className="text-left px-6 py-4 w-16">排名</th>
-              <th className="text-left px-6 py-4">选手</th>
-              <th className="text-center px-6 py-4">ELO</th>
-              <th className="text-center px-6 py-4">胜/负</th>
-              <th className="text-center px-6 py-4">胜率</th>
-              <th className="text-center px-6 py-4 w-16">趋势</th>
+              <th className="w-16 px-6 py-4 text-left">排名</th>
+              <th className="px-6 py-4 text-left">选手</th>
+              <th className="px-6 py-4 text-center">ELO</th>
+              <th className="px-6 py-4 text-center">积分</th>
+              <th className="px-6 py-4 text-center">胜/负</th>
+              <th className="px-6 py-4 text-center">胜率</th>
+              <th className="px-6 py-4 text-center">徽章</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-600">
-            {MOCK_RANKINGS.map((player, index) => {
-              const winRate = Math.round(
-                (player.wins / (player.wins + player.losses)) * 100
-              )
+            {sorted.map((player, index) => {
+              const total = player.wins + player.losses
+              const winRate = total > 0 ? Math.round((player.wins / total) * 100) : 0
               return (
-                <tr key={player.id} className="hover:bg-gray-600 transition text-white">
+                <tr key={player.id} className="text-white transition hover:bg-gray-600">
                   <td className="px-6 py-4">{rankBadge(index + 1)}</td>
                   <td className="px-6 py-4">
-                    <Link
-                      href={`/users/${player.id}`}
-                      className="flex items-center gap-3 hover:text-cyan-400 transition"
-                    >
-                      <div className="w-10 h-10 bg-cyan-600 text-white rounded-full flex items-center justify-center font-bold">
+                    <Link href={`/users/${player.id}`} className="flex items-center gap-3 transition hover:text-cyan-400">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-600 font-bold text-white">
                         {player.nickname[0]}
                       </div>
                       <span className="font-medium">{player.nickname}</span>
                     </Link>
                   </td>
-                  <td className="px-6 py-4 text-center font-bold">
-                    {player.eloRating}
-                  </td>
+                  <td className="px-6 py-4 text-center font-bold">{player.eloRating}</td>
+                  <td className="px-6 py-4 text-center font-bold text-cyan-300">{player.points}</td>
                   <td className="px-6 py-4 text-center">
-                    <span className="text-green-400">{player.wins}胜</span>
-                    {' / '}
-                    <span className="text-red-400">{player.losses}负</span>
+                    <span className="text-green-400">{player.wins}胜</span> / <span className="text-red-400">{player.losses}负</span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <progress
-                        className="w-20 h-2"
-                        value={winRate}
-                        max={100}
-                        aria-label="胜率"
-                      />
-                      <span className="text-sm text-gray-300">{winRate}%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 flex justify-center">
-                    {trendIcon(player.trend)}
-                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-gray-300">{winRate}%</td>
+                  <td className="px-6 py-4 text-center text-amber-300">{player.awardedBadges.length}</td>
                 </tr>
               )
             })}
