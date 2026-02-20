@@ -1,88 +1,111 @@
-'use client'
+"use client";
 
-import { useMemo, useRef, useState } from 'react'
+/* eslint-disable @eslint-react/dom/no-inline-styles */
+
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type BracketRound = {
-  name: string
+  name: string;
   matches: Array<{
-    id: string
-    homeLabel: string
-    awayLabel: string
-  }>
-}
+    id: string;
+    homeLabel: string;
+    awayLabel: string;
+    homeFilled?: boolean;
+    awayFilled?: boolean;
+    homeOutcome?: "winner" | "loser";
+    awayOutcome?: "winner" | "loser";
+    homeScoreText?: string;
+    awayScoreText?: string;
+  }>;
+};
 
 type MatchNode = {
-  id: string
-  roundIndex: number
-  matchIndex: number
-  x: number
-  y: number
+  id: string;
+  roundIndex: number;
+  matchIndex: number;
+  x: number;
+  y: number;
   data: {
-    id: string
-    homeLabel: string
-    awayLabel: string
-  }
-}
+    id: string;
+    homeLabel: string;
+    awayLabel: string;
+    homeFilled?: boolean;
+    awayFilled?: boolean;
+    homeOutcome?: "winner" | "loser";
+    awayOutcome?: "winner" | "loser";
+    homeScoreText?: string;
+    awayScoreText?: string;
+  };
+};
 
-const CARD_W = 220
-const CARD_H = 84
-const COL_GAP = 56
-const ROW_GAP = 28
-const PAD = 36
-const CENTER_GAP = 70
+const CARD_W = 220;
+const CARD_H = 84;
+const COL_GAP = 56;
+const ROW_GAP = 28;
+const PAD = 36;
+const CENTER_GAP = 70;
+const ABSOLUTE_MIN_SCALE = 0.2;
+const ABSOLUTE_MAX_SCALE = 1.8;
 
 function splitSideRounds(rounds: BracketRound[]) {
-  const preFinalRounds = rounds.slice(0, -1)
+  const preFinalRounds = rounds.slice(0, -1);
 
   const leftRounds = preFinalRounds.map((round) => ({
     name: round.name,
     matches: round.matches.slice(0, Math.floor(round.matches.length / 2)),
-  }))
+  }));
 
   const rightRounds = preFinalRounds.map((round) => ({
     name: round.name,
     matches: round.matches.slice(Math.floor(round.matches.length / 2)),
-  }))
+  }));
 
-  return { leftRounds, rightRounds }
+  return { leftRounds, rightRounds };
 }
 
 function buildYByRounds(matchCounts: number[]) {
-  if (matchCounts.length === 0) return [] as number[][]
+  if (matchCounts.length === 0) return [] as number[][];
 
-  const yRounds: number[][] = []
-  yRounds[0] = Array.from({ length: matchCounts[0] }, (_, i) => PAD + i * (CARD_H + ROW_GAP))
+  const yRounds: number[][] = [];
+  yRounds[0] = Array.from(
+    { length: matchCounts[0] },
+    (_, i) => PAD + i * (CARD_H + ROW_GAP),
+  );
 
   for (let r = 1; r < matchCounts.length; r += 1) {
-    const prev = yRounds[r - 1]
+    const prev = yRounds[r - 1];
     const current = Array.from({ length: matchCounts[r] }, (_, i) => {
-      const top = prev[i * 2]
-      const bottom = prev[i * 2 + 1]
-      return (top + bottom) / 2
-    })
-    yRounds[r] = current
+      const top = prev[i * 2];
+      const bottom = prev[i * 2 + 1];
+      return (top + bottom) / 2;
+    });
+    yRounds[r] = current;
   }
 
-  return yRounds
+  return yRounds;
 }
 
-export default function KnockoutBracket({ rounds }: { rounds: BracketRound[] }) {
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
-  const dragOriginRef = useRef({ x: 0, y: 0 })
-  const offsetOriginRef = useRef({ x: 0, y: 0 })
+export default function KnockoutBracket({
+  rounds,
+}: {
+  rounds: BracketRound[];
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragOriginRef = useRef({ x: 0, y: 0 });
+  const offsetOriginRef = useRef({ x: 0, y: 0 });
 
   const scene = useMemo(() => {
-    if (rounds.length === 0) return null
+    if (rounds.length === 0) return null;
 
     if (rounds.length === 1) {
-      const only = rounds[0]
-      const x = PAD
-      const y = PAD
-      const width = CARD_W + PAD * 2
-      const height = CARD_H + PAD * 2
+      const only = rounds[0];
+      const x = PAD;
+      const y = PAD;
+      const width = CARD_W + PAD * 2;
+      const height = CARD_H + PAD * 2;
       return {
         width,
         height,
@@ -90,24 +113,31 @@ export default function KnockoutBracket({ rounds }: { rounds: BracketRound[] }) 
         rightRounds: [] as BracketRound[],
         leftNodes: [] as MatchNode[],
         rightNodes: [] as MatchNode[],
-        finalNode: { id: only.matches[0].id, roundIndex: 0, matchIndex: 0, x, y, data: only.matches[0] } as MatchNode,
-      }
+        finalNode: {
+          id: only.matches[0].id,
+          roundIndex: 0,
+          matchIndex: 0,
+          x,
+          y,
+          data: only.matches[0],
+        } as MatchNode,
+      };
     }
 
-    const finalRound = rounds[rounds.length - 1]
-    const { leftRounds, rightRounds } = splitSideRounds(rounds)
+    const finalRound = rounds[rounds.length - 1];
+    const { leftRounds, rightRounds } = splitSideRounds(rounds);
 
-    const leftCounts = leftRounds.map((r) => r.matches.length)
-    const rightCounts = rightRounds.map((r) => r.matches.length)
+    const leftCounts = leftRounds.map((r) => r.matches.length);
+    const rightCounts = rightRounds.map((r) => r.matches.length);
 
-    const leftY = buildYByRounds(leftCounts)
-    const rightY = buildYByRounds(rightCounts)
+    const leftY = buildYByRounds(leftCounts);
+    const rightY = buildYByRounds(rightCounts);
 
-    const preFinalCols = leftRounds.length
-    const colStep = CARD_W + COL_GAP
-    const finalX = PAD + preFinalCols * colStep + CENTER_GAP
+    const preFinalCols = leftRounds.length;
+    const colStep = CARD_W + COL_GAP;
+    const finalX = PAD + preFinalCols * colStep + CENTER_GAP;
 
-    const leftNodes: MatchNode[] = []
+    const leftNodes: MatchNode[] = [];
     leftRounds.forEach((round, rIdx) => {
       round.matches.forEach((match, mIdx) => {
         leftNodes.push({
@@ -117,11 +147,11 @@ export default function KnockoutBracket({ rounds }: { rounds: BracketRound[] }) 
           x: PAD + rIdx * colStep,
           y: leftY[rIdx][mIdx],
           data: match,
-        })
-      })
-    })
+        });
+      });
+    });
 
-    const rightNodes: MatchNode[] = []
+    const rightNodes: MatchNode[] = [];
     rightRounds.forEach((round, rIdx) => {
       round.matches.forEach((match, mIdx) => {
         rightNodes.push({
@@ -131,15 +161,15 @@ export default function KnockoutBracket({ rounds }: { rounds: BracketRound[] }) 
           x: finalX + CARD_W + CENTER_GAP + (preFinalCols - 1 - rIdx) * colStep,
           y: rightY[rIdx][mIdx],
           data: match,
-        })
-      })
-    })
+        });
+      });
+    });
 
     const maxY = Math.max(
       ...leftNodes.map((n) => n.y + CARD_H),
       ...rightNodes.map((n) => n.y + CARD_H),
       PAD + CARD_H,
-    )
+    );
 
     const finalNode: MatchNode = {
       id: finalRound.matches[0].id,
@@ -148,33 +178,193 @@ export default function KnockoutBracket({ rounds }: { rounds: BracketRound[] }) 
       x: finalX,
       y: maxY / 2 - CARD_H / 2,
       data: finalRound.matches[0],
-    }
+    };
 
-    const width = finalX + CARD_W + CENTER_GAP + preFinalCols * colStep + PAD
-    const height = Math.max(maxY + PAD, finalNode.y + CARD_H + PAD)
+    const width = finalX + CARD_W + CENTER_GAP + preFinalCols * colStep + PAD;
+    const height = Math.max(maxY + PAD, finalNode.y + CARD_H + PAD);
 
-    return { width, height, leftRounds, rightRounds, leftNodes, rightNodes, finalNode }
-  }, [rounds])
+    return {
+      width,
+      height,
+      leftRounds,
+      rightRounds,
+      leftNodes,
+      rightNodes,
+      finalNode,
+    };
+  }, [rounds]);
 
-  if (!scene) return null
+  if (!scene) return null;
+
+  const clampOffset = (
+    nextOffset: { x: number; y: number },
+    nextScale = scale,
+  ) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return nextOffset;
+
+    const viewportW = viewport.clientWidth;
+    const viewportH = viewport.clientHeight;
+    const contentW = scene.width * nextScale;
+    const contentH = scene.height * nextScale;
+    const pad = 80;
+
+    const clampAxis = (
+      value: number,
+      viewportSize: number,
+      contentSize: number,
+    ) => {
+      if (contentSize <= viewportSize) {
+        return (viewportSize - contentSize) / 2;
+      }
+      const min = viewportSize - contentSize - pad;
+      const max = pad;
+      return Math.max(min, Math.min(max, value));
+    };
+
+    return {
+      x: clampAxis(nextOffset.x, viewportW, contentW),
+      y: clampAxis(nextOffset.y, viewportH, contentH),
+    };
+  };
+
+  const getMinScale = () => {
+    const viewport = viewportRef.current;
+    if (!viewport) return ABSOLUTE_MIN_SCALE;
+
+    const fitWidth = viewport.clientWidth / scene.width;
+    const fitHeight = viewport.clientHeight / scene.height;
+    const fitScale = Math.min(fitWidth, fitHeight);
+
+    return Math.max(ABSOLUTE_MIN_SCALE, Math.min(1, fitScale * 0.4));
+  };
+
+  useEffect(() => {
+    setOffset((prev) => clampOffset(prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.width, scene.height]);
 
   const zoomTo = (next: number) => {
-    setScale(Math.max(0.55, Math.min(1.8, next)))
-  }
+    const minScale = getMinScale();
+    const nextScale = Math.max(minScale, Math.min(ABSOLUTE_MAX_SCALE, next));
+    setScale(nextScale);
+    setOffset((prev) => clampOffset(prev, nextScale));
+  };
+
+  const renderMatchCard = (node: MatchNode, isFinal = false) => (
+    <g key={node.id} transform={`translate(${node.x} ${node.y})`}>
+      <rect
+        x={0}
+        y={0}
+        width={CARD_W}
+        height={CARD_H}
+        rx={10}
+        fill={isFinal ? "rgba(34,211,238,0.1)" : "rgba(30,41,59,0.85)"}
+        stroke={isFinal ? "rgba(34,211,238,0.45)" : "rgba(51,65,85,1)"}
+      />
+      <text
+        x={isFinal ? CARD_W / 2 : 10}
+        y={13}
+        textAnchor={isFinal ? "middle" : "start"}
+        fill={isFinal ? "rgb(165,243,252)" : "rgb(148,163,184)"}
+        fontSize={11}
+      >
+        {node.data.id}
+      </text>
+
+      <rect
+        x={8}
+        y={22}
+        width={CARD_W - 16}
+        height={22}
+        rx={6}
+        fill={
+          node.data.homeOutcome === "winner"
+            ? "rgba(16,185,129,0.28)"
+            : node.data.homeOutcome === "loser"
+              ? "rgba(244,63,94,0.24)"
+              : node.data.homeFilled
+                ? "rgba(6,182,212,0.25)"
+                : "rgba(51,65,85,0.75)"
+        }
+      />
+      <text x={14} y={36} fill="rgb(241,245,249)" fontSize={12}>
+        {node.data.homeLabel}
+      </text>
+      {node.data.homeScoreText ? (
+        <text
+          x={CARD_W - 14}
+          y={36}
+          textAnchor="end"
+          fill="rgb(226,232,240)"
+          fontSize={12}
+        >
+          {node.data.homeScoreText}
+        </text>
+      ) : null}
+
+      <rect
+        x={8}
+        y={50}
+        width={CARD_W - 16}
+        height={22}
+        rx={6}
+        fill={
+          node.data.awayOutcome === "winner"
+            ? "rgba(16,185,129,0.28)"
+            : node.data.awayOutcome === "loser"
+              ? "rgba(244,63,94,0.24)"
+              : node.data.awayFilled
+                ? "rgba(6,182,212,0.25)"
+                : "rgba(51,65,85,0.75)"
+        }
+      />
+      <text x={14} y={64} fill="rgb(241,245,249)" fontSize={12}>
+        {node.data.awayLabel}
+      </text>
+      {node.data.awayScoreText ? (
+        <text
+          x={CARD_W - 14}
+          y={64}
+          textAnchor="end"
+          fill="rgb(226,232,240)"
+          fontSize={12}
+        >
+          {node.data.awayScoreText}
+        </text>
+      ) : null}
+    </g>
+  );
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">支持拖拽平移与缩放（滚轮缩放 / 触控板滚动平移）</p>
+        <p className="text-xs text-slate-400">
+          支持拖拽平移与缩放（Ctrl+滚轮缩放）
+        </p>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => zoomTo(scale - 0.1)} className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200">-</button>
-          <span className="text-xs text-slate-300">{Math.round(scale * 100)}%</span>
-          <button type="button" onClick={() => zoomTo(scale + 0.1)} className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200">+</button>
+          <button
+            type="button"
+            onClick={() => zoomTo(scale - 0.1)}
+            className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200"
+          >
+            -
+          </button>
+          <span className="text-xs text-slate-300">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => zoomTo(scale + 0.1)}
+            className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200"
+          >
+            +
+          </button>
           <button
             type="button"
             onClick={() => {
-              setScale(1)
-              setOffset({ x: 0, y: 0 })
+              setScale(1);
+              setOffset(clampOffset({ x: 0, y: 0 }, 1));
             }}
             className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200"
           >
@@ -187,116 +377,136 @@ export default function KnockoutBracket({ rounds }: { rounds: BracketRound[] }) 
         ref={viewportRef}
         className="relative h-[70vh] overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70"
         onWheel={(event) => {
-          event.preventDefault()
           if (event.ctrlKey || event.metaKey) {
-            const delta = event.deltaY > 0 ? -0.08 : 0.08
-            zoomTo(scale + delta)
-            return
+            event.preventDefault();
+            const delta = event.deltaY > 0 ? -0.08 : 0.08;
+            zoomTo(scale + delta);
           }
-          setOffset((prev) => ({ x: prev.x - event.deltaX * 0.9, y: prev.y - event.deltaY * 0.9 }))
         }}
         onPointerDown={(event) => {
-          setDragging(true)
-          dragOriginRef.current = { x: event.clientX, y: event.clientY }
-          offsetOriginRef.current = offset
+          setDragging(true);
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragOriginRef.current = { x: event.clientX, y: event.clientY };
+          offsetOriginRef.current = offset;
         }}
         onPointerMove={(event) => {
-          if (!dragging) return
-          const dx = event.clientX - dragOriginRef.current.x
-          const dy = event.clientY - dragOriginRef.current.y
-          setOffset({ x: offsetOriginRef.current.x + dx, y: offsetOriginRef.current.y + dy })
+          if (!dragging) return;
+          const dx = event.clientX - dragOriginRef.current.x;
+          const dy = event.clientY - dragOriginRef.current.y;
+          setOffset(
+            clampOffset({
+              x: offsetOriginRef.current.x + dx,
+              y: offsetOriginRef.current.y + dy,
+            }),
+          );
         }}
         onPointerUp={() => setDragging(false)}
+        onPointerCancel={() => setDragging(false)}
         onPointerLeave={() => setDragging(false)}
       >
-        <div
-          className="absolute left-0 top-0"
-          style={{
-            width: scene.width,
-            height: scene.height,
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-            transformOrigin: '0 0',
-            transition: dragging ? 'none' : 'transform 140ms ease-out',
-          }}
+        <svg
+          width={scene.width}
+          height={scene.height}
+          className="absolute left-0 top-0 pointer-events-none"
         >
-          <svg width={scene.width} height={scene.height} className="absolute left-0 top-0 pointer-events-none">
+          <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
             {scene.leftNodes.map((node) => {
-              const next = scene.leftNodes.find((n) => n.roundIndex === node.roundIndex + 1 && n.matchIndex === Math.floor(node.matchIndex / 2))
-              if (!next) return null
-              const x1 = node.x + CARD_W
-              const y1 = node.y + CARD_H / 2
-              const x2 = next.x
-              const y2 = next.y + CARD_H / 2
-              const xm = (x1 + x2) / 2
-              return <path key={`${node.id}->${next.id}`} d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`} stroke="rgba(148,163,184,0.65)" fill="none" strokeWidth="1.5" />
+              const next = scene.leftNodes.find(
+                (n) =>
+                  n.roundIndex === node.roundIndex + 1 &&
+                  n.matchIndex === Math.floor(node.matchIndex / 2),
+              );
+              if (!next) return null;
+              const x1 = node.x + CARD_W;
+              const y1 = node.y + CARD_H / 2;
+              const x2 = next.x;
+              const y2 = next.y + CARD_H / 2;
+              const xm = (x1 + x2) / 2;
+              return (
+                <path
+                  key={`${node.id}->${next.id}`}
+                  d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`}
+                  stroke="rgba(148,163,184,0.65)"
+                  fill="none"
+                  strokeWidth="1.5"
+                />
+              );
             })}
 
             {scene.rightNodes.map((node) => {
-              const next = scene.rightNodes.find((n) => n.roundIndex === node.roundIndex + 1 && n.matchIndex === Math.floor(node.matchIndex / 2))
-              if (!next) return null
-              const x1 = node.x
-              const y1 = node.y + CARD_H / 2
-              const x2 = next.x + CARD_W
-              const y2 = next.y + CARD_H / 2
-              const xm = (x1 + x2) / 2
-              return <path key={`${node.id}->${next.id}`} d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`} stroke="rgba(148,163,184,0.65)" fill="none" strokeWidth="1.5" />
+              const next = scene.rightNodes.find(
+                (n) =>
+                  n.roundIndex === node.roundIndex + 1 &&
+                  n.matchIndex === Math.floor(node.matchIndex / 2),
+              );
+              if (!next) return null;
+              const x1 = node.x;
+              const y1 = node.y + CARD_H / 2;
+              const x2 = next.x + CARD_W;
+              const y2 = next.y + CARD_H / 2;
+              const xm = (x1 + x2) / 2;
+              return (
+                <path
+                  key={`${node.id}->${next.id}`}
+                  d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`}
+                  stroke="rgba(148,163,184,0.65)"
+                  fill="none"
+                  strokeWidth="1.5"
+                />
+              );
             })}
 
-            {scene.leftRounds.length > 0 && (() => {
-              const leftFinal = scene.leftNodes.find((n) => n.roundIndex === scene.leftRounds.length - 1 && n.matchIndex === 0)
-              if (!leftFinal) return null
-              const x1 = leftFinal.x + CARD_W
-              const y1 = leftFinal.y + CARD_H / 2
-              const x2 = scene.finalNode.x
-              const y2 = scene.finalNode.y + CARD_H / 2
-              const xm = (x1 + x2) / 2
-              return <path d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`} stroke="rgba(34,211,238,0.75)" fill="none" strokeWidth="2" />
-            })()}
+            {scene.leftRounds.length > 0 &&
+              (() => {
+                const leftFinal = scene.leftNodes.find(
+                  (n) =>
+                    n.roundIndex === scene.leftRounds.length - 1 &&
+                    n.matchIndex === 0,
+                );
+                if (!leftFinal) return null;
+                const x1 = leftFinal.x + CARD_W;
+                const y1 = leftFinal.y + CARD_H / 2;
+                const x2 = scene.finalNode.x;
+                const y2 = scene.finalNode.y + CARD_H / 2;
+                const xm = (x1 + x2) / 2;
+                return (
+                  <path
+                    d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`}
+                    stroke="rgba(34,211,238,0.75)"
+                    fill="none"
+                    strokeWidth="2"
+                  />
+                );
+              })()}
 
-            {scene.rightRounds.length > 0 && (() => {
-              const rightFinal = scene.rightNodes.find((n) => n.roundIndex === scene.rightRounds.length - 1 && n.matchIndex === 0)
-              if (!rightFinal) return null
-              const x1 = rightFinal.x
-              const y1 = rightFinal.y + CARD_H / 2
-              const x2 = scene.finalNode.x + CARD_W
-              const y2 = scene.finalNode.y + CARD_H / 2
-              const xm = (x1 + x2) / 2
-              return <path d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`} stroke="rgba(34,211,238,0.75)" fill="none" strokeWidth="2" />
-            })()}
-          </svg>
-
-          {scene.leftNodes.map((node) => (
-            <div key={node.id} className="absolute rounded-lg border border-slate-700 bg-slate-800/85 p-2.5 shadow" style={{ left: node.x, top: node.y, width: CARD_W, height: CARD_H }}>
-              <p className="mb-1 text-[11px] text-slate-400">{node.data.id}</p>
-              <div className="space-y-1 text-xs text-slate-100">
-                <div className="rounded bg-slate-700/70 px-2 py-1">{node.data.homeLabel}</div>
-                <div className="rounded bg-slate-700/70 px-2 py-1">{node.data.awayLabel}</div>
-              </div>
-            </div>
-          ))}
-
-          {scene.rightNodes.map((node) => (
-            <div key={node.id} className="absolute rounded-lg border border-slate-700 bg-slate-800/85 p-2.5 shadow" style={{ left: node.x, top: node.y, width: CARD_W, height: CARD_H }}>
-              <p className="mb-1 text-[11px] text-slate-400">{node.data.id}</p>
-              <div className="space-y-1 text-xs text-slate-100">
-                <div className="rounded bg-slate-700/70 px-2 py-1">{node.data.homeLabel}</div>
-                <div className="rounded bg-slate-700/70 px-2 py-1">{node.data.awayLabel}</div>
-              </div>
-            </div>
-          ))}
-
-          <div
-            className="absolute rounded-lg border border-cyan-400/45 bg-cyan-500/10 p-2.5 shadow-lg shadow-cyan-900/20"
-            style={{ left: scene.finalNode.x, top: scene.finalNode.y, width: CARD_W, height: CARD_H }}
-          >
-            <p className="mb-1 text-center text-[11px] text-cyan-200">{scene.finalNode.data.id}</p>
-            <div className="space-y-1 text-xs text-slate-100">
-              <div className="rounded bg-slate-700/70 px-2 py-1">{scene.finalNode.data.homeLabel}</div>
-              <div className="rounded bg-slate-700/70 px-2 py-1">{scene.finalNode.data.awayLabel}</div>
-            </div>
-          </div>
-        </div>
+            {scene.rightRounds.length > 0 &&
+              (() => {
+                const rightFinal = scene.rightNodes.find(
+                  (n) =>
+                    n.roundIndex === scene.rightRounds.length - 1 &&
+                    n.matchIndex === 0,
+                );
+                if (!rightFinal) return null;
+                const x1 = rightFinal.x;
+                const y1 = rightFinal.y + CARD_H / 2;
+                const x2 = scene.finalNode.x + CARD_W;
+                const y2 = scene.finalNode.y + CARD_H / 2;
+                const xm = (x1 + x2) / 2;
+                return (
+                  <path
+                    d={`M ${x1} ${y1} H ${xm} V ${y2} H ${x2}`}
+                    stroke="rgba(34,211,238,0.75)"
+                    fill="none"
+                    strokeWidth="2"
+                  />
+                );
+              })()}
+            {scene.leftNodes.map((node) => renderMatchCard(node))}
+            {scene.rightNodes.map((node) => renderMatchCard(node))}
+            {renderMatchCard(scene.finalNode, true)}
+          </g>
+        </svg>
       </div>
     </div>
-  )
+  );
 }
