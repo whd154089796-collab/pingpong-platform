@@ -112,7 +112,10 @@ export default async function MatchDetailPage({
     match.status === "registration" &&
     now < match.registrationDeadline;
   const alreadyRegistered = Boolean(
-    currentUser && match.registrations.some((r) => r.userId === currentUser.id),
+    currentUser &&
+    match.registrations.some(
+      (r: { userId: string }) => r.userId === currentUser.id,
+    ),
   );
   const isDoubleMatch = match.type === "double";
 
@@ -177,12 +180,21 @@ export default async function MatchDetailPage({
           try {
             return generateGroupingPayload(
               match.format,
-              match.registrations.map((item) => ({
-                id: item.user.id,
-                nickname: item.user.nickname,
-                points: item.user.points,
-                eloRating: item.user.eloRating,
-              })),
+              match.registrations.map(
+                (item: {
+                  user: {
+                    id: string;
+                    nickname: string;
+                    points: number;
+                    eloRating: number;
+                  };
+                }) => ({
+                  id: item.user.id,
+                  nickname: item.user.nickname,
+                  points: item.user.points,
+                  eloRating: item.user.eloRating,
+                }),
+              ),
               {
                 groupCount: defaultGroupCount,
                 qualifiersPerGroup:
@@ -447,37 +459,46 @@ export default async function MatchDetailPage({
                   {doublesInviteCandidates.length === 0 ? (
                     <p className="text-xs text-slate-400">未找到可邀请球员。</p>
                   ) : (
-                    doublesInviteCandidates.map((candidate) => (
-                      <div
-                        key={candidate.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
-                      >
-                        <div>
-                          <p className="text-sm text-slate-100">
-                            {candidate.nickname}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {candidate.email}
-                          </p>
-                        </div>
-                        <form
-                          action={sendDoublesInviteAction.bind(null, match.id)}
+                    doublesInviteCandidates.map(
+                      (candidate: {
+                        id: string;
+                        nickname: string;
+                        email: string;
+                      }) => (
+                        <div
+                          key={candidate.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
                         >
-                          <input type="hidden" name="csrfToken" value="" />
-                          <input
-                            type="hidden"
-                            name="inviteeId"
-                            value={candidate.id}
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-md border border-cyan-500/40 px-2.5 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/10"
+                          <div>
+                            <p className="text-sm text-slate-100">
+                              {candidate.nickname}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {candidate.email}
+                            </p>
+                          </div>
+                          <form
+                            action={sendDoublesInviteAction.bind(
+                              null,
+                              match.id,
+                            )}
                           >
-                            发起邀请
-                          </button>
-                        </form>
-                      </div>
-                    ))
+                            <input type="hidden" name="csrfToken" value="" />
+                            <input
+                              type="hidden"
+                              name="inviteeId"
+                              value={candidate.id}
+                            />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-cyan-500/40 px-2.5 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/10"
+                            >
+                              发起邀请
+                            </button>
+                          </form>
+                        </div>
+                      ),
+                    )
                   )}
                 </div>
               ) : null}
@@ -485,52 +506,67 @@ export default async function MatchDetailPage({
               {pendingDoublesInvites.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-400">当前比赛待处理邀请</p>
-                  {pendingDoublesInvites.map((invite) => {
-                    const isReceived = invite.inviteeId === currentUser.id;
-                    return (
-                      <div
-                        key={invite.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-800/30 px-3 py-2"
-                      >
-                        <p className="text-sm text-slate-200">
-                          {invite.inviterNickname} → {invite.inviteeNickname}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          {isReceived ? (
-                            <form action={acceptDoublesInviteAction}>
-                              <input type="hidden" name="csrfToken" value="" />
-                              <input
-                                type="hidden"
-                                name="inviteId"
-                                value={invite.id}
-                              />
-                              <button
-                                type="submit"
-                                className="rounded-md border border-emerald-500/40 px-2.5 py-1 text-xs text-emerald-200 hover:bg-emerald-500/10"
-                              >
-                                接受
-                              </button>
-                            </form>
-                          ) : (
-                            <form action={revokeDoublesInviteAction}>
-                              <input type="hidden" name="csrfToken" value="" />
-                              <input
-                                type="hidden"
-                                name="inviteId"
-                                value={invite.id}
-                              />
-                              <button
-                                type="submit"
-                                className="rounded-md border border-rose-500/40 px-2.5 py-1 text-xs text-rose-200 hover:bg-rose-500/10"
-                              >
-                                撤回
-                              </button>
-                            </form>
-                          )}
+                  {pendingDoublesInvites.map(
+                    (invite: {
+                      id: string;
+                      inviterNickname: string;
+                      inviteeNickname: string;
+                      inviteeId: string;
+                    }) => {
+                      const isReceived = invite.inviteeId === currentUser.id;
+                      return (
+                        <div
+                          key={invite.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-800/30 px-3 py-2"
+                        >
+                          <p className="text-sm text-slate-200">
+                            {invite.inviterNickname} → {invite.inviteeNickname}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            {isReceived ? (
+                              <form action={acceptDoublesInviteAction}>
+                                <input
+                                  type="hidden"
+                                  name="csrfToken"
+                                  value=""
+                                />
+                                <input
+                                  type="hidden"
+                                  name="inviteId"
+                                  value={invite.id}
+                                />
+                                <button
+                                  type="submit"
+                                  className="rounded-md border border-emerald-500/40 px-2.5 py-1 text-xs text-emerald-200 hover:bg-emerald-500/10"
+                                >
+                                  接受
+                                </button>
+                              </form>
+                            ) : (
+                              <form action={revokeDoublesInviteAction}>
+                                <input
+                                  type="hidden"
+                                  name="csrfToken"
+                                  value=""
+                                />
+                                <input
+                                  type="hidden"
+                                  name="inviteId"
+                                  value={invite.id}
+                                />
+                                <button
+                                  type="submit"
+                                  className="rounded-md border border-rose-500/40 px-2.5 py-1 text-xs text-rose-200 hover:bg-rose-500/10"
+                                >
+                                  撤回
+                                </button>
+                              </form>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    },
+                  )}
                 </div>
               ) : null}
             </div>
