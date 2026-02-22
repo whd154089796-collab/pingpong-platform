@@ -9,15 +9,13 @@ type SessionPayload = {
 }
 
 function getSessionSecret() {
-  const secret = process.env.AUTH_SECRET
-  if (!secret) {
-    throw new Error('缺少 AUTH_SECRET 环境变量，无法签发或校验会话。')
-  }
-  return secret
+  return process.env.AUTH_SECRET ?? null
 }
 
 function signPayload(payload: string) {
-  return createHmac('sha256', getSessionSecret()).update(payload).digest('hex')
+  const secret = getSessionSecret()
+  if (!secret) return null
+  return createHmac('sha256', secret).update(payload).digest('hex')
 }
 
 export function shouldUseSecureCookies() {
@@ -29,10 +27,13 @@ export function createSessionToken(userId: string) {
   const nonce = randomBytes(16).toString('hex')
   const payload = `${userId}.${expiresAtMs}.${nonce}`
   const signature = signPayload(payload)
+  if (!signature) return null
   return `${payload}.${signature}`
 }
 
 export function verifySessionToken(rawValue: string): SessionPayload | null {
+  if (!getSessionSecret()) return null
+
   const [userId, expiresAtRaw, nonce, signature] = rawValue.split('.')
   if (!userId || !expiresAtRaw || !nonce || !signature) return null
 
@@ -41,6 +42,7 @@ export function verifySessionToken(rawValue: string): SessionPayload | null {
 
   const payload = `${userId}.${expiresAtMs}.${nonce}`
   const expectedSignature = signPayload(payload)
+  if (!expectedSignature) return null
   const actualBuffer = Buffer.from(signature, 'hex')
   const expectedBuffer = Buffer.from(expectedSignature, 'hex')
 

@@ -21,6 +21,7 @@ function ensureTokenField(form: HTMLFormElement, token: string) {
 export default function CsrfFormInjector() {
   useEffect(() => {
     let tokenCache = "";
+    const resubmitFlag = "csrfResubmitting";
 
     const fetchToken = async () => {
       if (tokenCache) return tokenCache;
@@ -45,20 +46,28 @@ export default function CsrfFormInjector() {
 
     void applyToAllForms();
 
-    const handleSubmit = async (event: Event) => {
+    const handleSubmit = (event: Event) => {
       const form = event.target;
       if (!(form instanceof HTMLFormElement)) return;
 
-      if (!tokenCache) {
-        event.preventDefault();
-        const token = await fetchToken();
-        ensureTokenField(form, token);
-        form.requestSubmit();
+      if (form.dataset[resubmitFlag] === "1") {
+        delete form.dataset[resubmitFlag];
         return;
       }
 
-      const token = await fetchToken();
-      ensureTokenField(form, token);
+      if (tokenCache) {
+        ensureTokenField(form, tokenCache);
+        return;
+      }
+
+      event.preventDefault();
+
+      void (async () => {
+        const token = await fetchToken();
+        ensureTokenField(form, token);
+        form.dataset[resubmitFlag] = "1";
+        form.requestSubmit();
+      })();
     };
 
     document.addEventListener("submit", handleSubmit, true);

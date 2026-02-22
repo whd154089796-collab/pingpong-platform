@@ -210,14 +210,24 @@ export async function loginAction(_: AuthFormState, formData: FormData): Promise
     return { error: '邮箱尚未验证，请先点击邮件中的验证链接。' }
   }
 
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE_NAME, createSessionToken(user.id), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: shouldUseSecureCookies(),
-    path: '/',
-    maxAge: SESSION_TTL_SECONDS,
-  })
+  try {
+    const sessionToken = createSessionToken(user.id)
+    if (!sessionToken) {
+      return { error: '登录服务配置异常，请联系管理员检查 AUTH_SECRET。' }
+    }
+
+    const cookieStore = await cookies()
+    cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: shouldUseSecureCookies(),
+      path: '/',
+      maxAge: SESSION_TTL_SECONDS,
+    })
+  } catch (error) {
+    console.error('loginAction failed to create session token', error)
+    return { error: '登录服务配置异常，请联系管理员检查 AUTH_SECRET。' }
+  }
 
   redirect('/profile')
 }

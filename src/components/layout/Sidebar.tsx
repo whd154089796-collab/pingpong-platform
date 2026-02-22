@@ -7,7 +7,6 @@ import {
   Mail,
   Medal,
   PlusSquare,
-  UserRound,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getPendingInviteCountForUser } from "@/lib/doubles";
@@ -16,7 +15,6 @@ const navItems = [
   { href: "/", label: "首页", icon: Home },
   { href: "/matchs", label: "比赛大厅", icon: CalendarRange },
   { href: "/rankings", label: "排行榜", icon: Medal },
-  { href: "/profile", label: "个人中心", icon: UserRound },
 ];
 
 export default async function Sidebar() {
@@ -28,15 +26,15 @@ export default async function Sidebar() {
   const resolvedNavItems =
     currentUser?.role === "admin"
       ? [
-          { href: "/admin", label: "管理员控制台", icon: ShieldCheck },
-          { href: "/matchs/create", label: "发布比赛", icon: PlusSquare },
-          { href: "/team-invites", label: "组队信息", icon: Mail },
           ...navItems,
+          { href: "/team-invites", label: "组队信息", icon: Mail },
+          { href: "/matchs/create", label: "发布比赛", icon: PlusSquare },
+          { href: "/admin", label: "管理员控制台", icon: ShieldCheck },
         ]
       : currentUser
         ? [
-            { href: "/team-invites", label: "组队信息", icon: Mail },
             ...navItems,
+            { href: "/team-invites", label: "组队信息", icon: Mail },
           ]
         : navItems;
   const avatarFallback = (

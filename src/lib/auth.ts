@@ -10,7 +10,14 @@ export async function getCurrentUser() {
     return null
   }
 
-  const session = verifySessionToken(rawSession)
+  let session = null
+  try {
+    session = verifySessionToken(rawSession)
+  } catch (error) {
+    console.error('getCurrentUser failed to verify session token', error)
+    return null
+  }
+
   if (!session) {
     return null
   }
