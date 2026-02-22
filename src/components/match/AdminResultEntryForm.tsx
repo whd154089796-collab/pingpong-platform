@@ -5,6 +5,7 @@ import {
   reportMatchResultAction,
   type MatchFormState,
 } from "@/app/matchs/actions";
+import KnockoutBracket from "@/components/match/KnockoutBracket";
 
 const initialState: MatchFormState = {};
 
@@ -22,6 +23,7 @@ type GroupMatchOption = {
 };
 
 type KnockoutMatchOption = {
+  matchId: string;
   roundName: string;
   playerAId: string;
   playerANickname: string;
@@ -53,6 +55,7 @@ export default function AdminResultEntryForm({
   initialRoundName,
   initialWinnerId,
   initialLoserId,
+  knockoutRounds,
 }: {
   matchId: string;
   players: PlayerOption[];
@@ -64,6 +67,22 @@ export default function AdminResultEntryForm({
   initialRoundName?: string;
   initialWinnerId?: string;
   initialLoserId?: string;
+  knockoutRounds?: Array<{
+    name: string;
+    matches: Array<{
+      id: string;
+      homeLabel: string;
+      awayLabel: string;
+      homePlayerId?: string | null;
+      awayPlayerId?: string | null;
+      homeFilled?: boolean;
+      awayFilled?: boolean;
+      homeOutcome?: string;
+      awayOutcome?: string;
+      homeScoreText?: string;
+      awayScoreText?: string;
+    }>;
+  }>;
 }) {
   const persistedState =
     typeof window !== "undefined"
@@ -165,21 +184,35 @@ export default function AdminResultEntryForm({
   ]);
 
   const defaultPairKey = visiblePairs[0]
-    ? `${visiblePairs[0].playerAId}::${visiblePairs[0].playerBId}`
+    ? "matchId" in visiblePairs[0] && visiblePairs[0].matchId
+      ? visiblePairs[0].matchId
+      : `${visiblePairs[0].playerAId}::${visiblePairs[0].playerBId}`
     : "";
 
   const activePairKey =
     selectedPairKey &&
     visiblePairs.some(
-      (item) => `${item.playerAId}::${item.playerBId}` === selectedPairKey,
+      (item) =>
+        ("matchId" in item && item.matchId
+          ? item.matchId
+          : `${item.playerAId}::${item.playerBId}`) === selectedPairKey,
     )
       ? selectedPairKey
       : defaultPairKey;
 
-  const activePair =
-    visiblePairs.find(
-      (item) => `${item.playerAId}::${item.playerBId}` === activePairKey,
-    ) ?? visiblePairs[0];
+  const visibleKnockoutPairs = useMemo(
+    () =>
+      visiblePairs.filter(
+        (item): item is KnockoutMatchOption => "matchId" in item,
+      ),
+    [visiblePairs],
+  );
+
+  const activeKnockoutPair =
+    visibleKnockoutPairs.find((item) => item.matchId === activePairKey) ??
+    visibleKnockoutPairs[0];
+
+  const activeKnockoutPairKey = activeKnockoutPair?.matchId ?? "";
 
   const groupPairs = useMemo(
     () =>
@@ -246,25 +279,25 @@ export default function AdminResultEntryForm({
   const winnerId =
     phase === "group"
       ? activeGroupWinnerId
-      : !activePair
+      : !activeKnockoutPair
         ? ""
         : winnerSide === "A"
-          ? activePair.playerAId
-          : activePair.playerBId;
+          ? activeKnockoutPair.playerAId
+          : activeKnockoutPair.playerBId;
 
   const loserId =
     phase === "group"
       ? activeGroupLoserId
-      : !activePair
+      : !activeKnockoutPair
         ? ""
         : winnerSide === "A"
-          ? activePair.playerBId
-          : activePair.playerAId;
+          ? activeKnockoutPair.playerBId
+          : activeKnockoutPair.playerAId;
 
   const canSubmit =
     phase === "group"
       ? Boolean(activeGroupWinnerId && activeGroupLoserId)
-      : Boolean(activePair) && sortedPlayers.length >= 2;
+      : Boolean(activeKnockoutPair) && sortedPlayers.length >= 2;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -510,7 +543,7 @@ export default function AdminResultEntryForm({
           <label className="space-y-1 text-sm text-slate-300">
             <span>可录入对局（仅未完成）</span>
             <select
-              value={activePairKey}
+              value={activeKnockoutPairKey}
               onChange={(event) => {
                 setSelectedPairKey(event.target.value);
                 setWinnerSide("A");
@@ -521,11 +554,8 @@ export default function AdminResultEntryForm({
               {visiblePairs.length === 0 ? (
                 <option value="">当前无可录入对局</option>
               ) : (
-                visiblePairs.map((item) => (
-                  <option
-                    key={`${item.playerAId}-${item.playerBId}`}
-                    value={`${item.playerAId}::${item.playerBId}`}
-                  >
+                visibleKnockoutPairs.map((item) => (
+                  <option key={item.matchId} value={item.matchId}>
                     {item.playerANickname} vs {item.playerBNickname}
                   </option>
                 ))
@@ -541,18 +571,35 @@ export default function AdminResultEntryForm({
                 setWinnerSide(event.target.value as "A" | "B")
               }
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
-              disabled={!activePair}
+              disabled={!activeKnockoutPair}
             >
-              {activePair ? (
+              {activeKnockoutPair ? (
                 <>
-                  <option value="A">{activePair.playerANickname}</option>
-                  <option value="B">{activePair.playerBNickname}</option>
+                  <option value="A">
+                    {activeKnockoutPair.playerANickname}
+                  </option>
+                  <option value="B">
+                    {activeKnockoutPair.playerBNickname}
+                  </option>
                 </>
               ) : (
                 <option value="A">请先选择对局</option>
               )}
             </select>
           </label>
+
+          {knockoutRounds && knockoutRounds.length > 0 ? (
+            <div className="md:col-span-2 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+              <p className="mb-2 text-xs text-slate-400">
+                淘汰赛签表（已自动定位并高亮当前选择对局）
+              </p>
+              <KnockoutBracket
+                rounds={knockoutRounds}
+                selectedMatchId={activeKnockoutPair?.matchId ?? null}
+                autoFocusMatchId={activeKnockoutPair?.matchId ?? null}
+              />
+            </div>
+          ) : null}
         </div>
       )}
 

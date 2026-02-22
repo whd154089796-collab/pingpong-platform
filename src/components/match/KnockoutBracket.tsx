@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @eslint-react/dom/no-inline-styles */
-
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type BracketRound = {
@@ -10,10 +8,12 @@ type BracketRound = {
     id: string;
     homeLabel: string;
     awayLabel: string;
+    homePlayerId?: string | null;
+    awayPlayerId?: string | null;
     homeFilled?: boolean;
     awayFilled?: boolean;
-    homeOutcome?: "winner" | "loser";
-    awayOutcome?: "winner" | "loser";
+    homeOutcome?: string;
+    awayOutcome?: string;
     homeScoreText?: string;
     awayScoreText?: string;
   }>;
@@ -29,10 +29,12 @@ type MatchNode = {
     id: string;
     homeLabel: string;
     awayLabel: string;
+    homePlayerId?: string | null;
+    awayPlayerId?: string | null;
     homeFilled?: boolean;
     awayFilled?: boolean;
-    homeOutcome?: "winner" | "loser";
-    awayOutcome?: "winner" | "loser";
+    homeOutcome?: string;
+    awayOutcome?: string;
     homeScoreText?: string;
     awayScoreText?: string;
   };
@@ -87,8 +89,16 @@ function buildYByRounds(matchCounts: number[]) {
 
 export default function KnockoutBracket({
   rounds,
+  currentUserId,
+  currentUserNickname,
+  selectedMatchId,
+  autoFocusMatchId,
 }: {
   rounds: BracketRound[];
+  currentUserId?: string | null;
+  currentUserNickname?: string | null;
+  selectedMatchId?: string | null;
+  autoFocusMatchId?: string | null;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -194,12 +204,11 @@ export default function KnockoutBracket({
     };
   }, [rounds]);
 
-  if (!scene) return null;
-
   const clampOffset = (
     nextOffset: { x: number; y: number },
     nextScale = scale,
   ) => {
+    if (!scene) return nextOffset;
     const viewport = viewportRef.current;
     if (!viewport) return nextOffset;
 
@@ -229,6 +238,7 @@ export default function KnockoutBracket({
   };
 
   const getMinScale = () => {
+    if (!scene) return ABSOLUTE_MIN_SCALE;
     const viewport = viewportRef.current;
     if (!viewport) return ABSOLUTE_MIN_SCALE;
 
@@ -240,9 +250,10 @@ export default function KnockoutBracket({
   };
 
   useEffect(() => {
+    if (!scene) return;
     setOffset((prev) => clampOffset(prev));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene.width, scene.height]);
+  }, [scene]);
 
   const zoomTo = (next: number) => {
     const minScale = getMinScale();
@@ -250,6 +261,69 @@ export default function KnockoutBracket({
     setScale(nextScale);
     setOffset((prev) => clampOffset(prev, nextScale));
   };
+
+  const isSelfLabel = (playerId: string | null | undefined, label: string) => {
+    if (currentUserId && playerId === currentUserId) return true;
+    if (currentUserNickname && label === currentUserNickname) {
+      return true;
+    }
+    return false;
+  };
+
+  const locateToSelf = () => {
+    if (!scene) return;
+
+    const allNodes = [...scene.leftNodes, ...scene.rightNodes, scene.finalNode];
+    const target = allNodes.find(
+      (node) =>
+        isSelfLabel(node.data.homePlayerId, node.data.homeLabel) ||
+        isSelfLabel(node.data.awayPlayerId, node.data.awayLabel),
+    );
+
+    if (!target || !viewportRef.current) return;
+
+    const viewport = viewportRef.current;
+    const targetScale = Math.max(getMinScale(), Math.min(1, scale));
+
+    const isHome = isSelfLabel(target.data.homePlayerId, target.data.homeLabel);
+    const targetX = target.x + CARD_W / 2;
+    const targetY = target.y + (isHome ? 33 : 61);
+
+    const centeredOffset = {
+      x: viewport.clientWidth / 2 - targetX * targetScale,
+      y: viewport.clientHeight / 2 - targetY * targetScale,
+    };
+
+    setScale(targetScale);
+    setOffset(clampOffset(centeredOffset, targetScale));
+  };
+
+  const focusMatchById = (matchId: string) => {
+    if (!scene || !viewportRef.current) return;
+
+    const allNodes = [...scene.leftNodes, ...scene.rightNodes, scene.finalNode];
+    const target = allNodes.find((node) => node.id === matchId);
+    if (!target) return;
+
+    const viewport = viewportRef.current;
+    const targetScale = Math.max(getMinScale(), Math.min(1, scale));
+    const targetX = target.x + CARD_W / 2;
+    const targetY = target.y + CARD_H / 2;
+
+    const centeredOffset = {
+      x: viewport.clientWidth / 2 - targetX * targetScale,
+      y: viewport.clientHeight / 2 - targetY * targetScale,
+    };
+
+    setScale(targetScale);
+    setOffset(clampOffset(centeredOffset, targetScale));
+  };
+
+  useEffect(() => {
+    if (!autoFocusMatchId) return;
+    focusMatchById(autoFocusMatchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocusMatchId, scene]);
 
   const renderMatchCard = (node: MatchNode, isFinal = false) => (
     <g key={node.id} transform={`translate(${node.x} ${node.y})`}>
@@ -260,7 +334,14 @@ export default function KnockoutBracket({
         height={CARD_H}
         rx={10}
         fill={isFinal ? "rgba(34,211,238,0.1)" : "rgba(30,41,59,0.85)"}
-        stroke={isFinal ? "rgba(34,211,238,0.45)" : "rgba(51,65,85,1)"}
+        stroke={
+          node.id === selectedMatchId
+            ? "rgba(250,204,21,0.95)"
+            : isFinal
+              ? "rgba(34,211,238,0.45)"
+              : "rgba(51,65,85,1)"
+        }
+        strokeWidth={node.id === selectedMatchId ? 2.4 : 1}
       />
       <text
         x={isFinal ? CARD_W / 2 : 10}
@@ -287,9 +368,30 @@ export default function KnockoutBracket({
                 ? "rgba(6,182,212,0.25)"
                 : "rgba(51,65,85,0.75)"
         }
+        stroke={
+          isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+            ? "rgba(250,204,21,0.9)"
+            : "transparent"
+        }
+        strokeWidth={
+          isSelfLabel(node.data.homePlayerId, node.data.homeLabel) ? 1.5 : 1
+        }
       />
-      <text x={14} y={36} fill="rgb(241,245,249)" fontSize={12}>
+      <text
+        x={14}
+        y={36}
+        fill="rgb(241,245,249)"
+        fontSize={12}
+        fontWeight={
+          isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+            ? "600"
+            : "400"
+        }
+      >
         {node.data.homeLabel}
+        {isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+          ? "（我）"
+          : ""}
       </text>
       {node.data.homeScoreText ? (
         <text
@@ -318,9 +420,30 @@ export default function KnockoutBracket({
                 ? "rgba(6,182,212,0.25)"
                 : "rgba(51,65,85,0.75)"
         }
+        stroke={
+          isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+            ? "rgba(250,204,21,0.9)"
+            : "transparent"
+        }
+        strokeWidth={
+          isSelfLabel(node.data.awayPlayerId, node.data.awayLabel) ? 1.5 : 1
+        }
       />
-      <text x={14} y={64} fill="rgb(241,245,249)" fontSize={12}>
+      <text
+        x={14}
+        y={64}
+        fill="rgb(241,245,249)"
+        fontSize={12}
+        fontWeight={
+          isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+            ? "600"
+            : "400"
+        }
+      >
         {node.data.awayLabel}
+        {isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+          ? "（我）"
+          : ""}
       </text>
       {node.data.awayScoreText ? (
         <text
@@ -336,6 +459,8 @@ export default function KnockoutBracket({
     </g>
   );
 
+  if (!scene) return null;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -343,6 +468,23 @@ export default function KnockoutBracket({
           支持拖拽平移与缩放（Ctrl+滚轮缩放）
         </p>
         <div className="flex items-center gap-2">
+          {selectedMatchId ? (
+            <button
+              type="button"
+              onClick={() => focusMatchById(selectedMatchId)}
+              className="rounded border border-amber-500/50 px-2 py-1 text-xs text-amber-200"
+            >
+              定位到所选对局
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={locateToSelf}
+            disabled={!currentUserId && !currentUserNickname}
+            className="rounded border border-amber-500/50 px-2 py-1 text-xs text-amber-200 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+          >
+            定位到我
+          </button>
           <button
             type="button"
             onClick={() => zoomTo(scale - 0.1)}

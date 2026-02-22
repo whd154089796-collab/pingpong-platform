@@ -1,0 +1,137 @@
+import KnockoutBracket from "@/components/match/KnockoutBracket";
+
+type GroupingPayload = {
+  groups: Array<{
+    name: string;
+    averagePoints: number;
+    players: Array<{
+      id: string;
+      nickname: string;
+      points: number;
+      eloRating: number;
+    }>;
+  }>;
+  knockout?: {
+    stage: string;
+    rounds: Array<{
+      name: string;
+      matches: Array<{ id: string; homeLabel: string; awayLabel: string }>;
+    }>;
+  };
+};
+
+export default function GroupingResultSection({
+  groupingPayload,
+  alreadyRegistered,
+  myGroup,
+  filledKnockoutRounds,
+  currentUserId,
+  currentUserNickname,
+}: {
+  groupingPayload: GroupingPayload | null;
+  alreadyRegistered: boolean;
+  myGroup: {
+    name: string;
+    averagePoints: number;
+    players: Array<{
+      id: string;
+      nickname: string;
+      points: number;
+      eloRating: number;
+    }>;
+  } | null;
+  filledKnockoutRounds: Array<{
+    name: string;
+    matches: Array<{
+      id: string;
+      homeLabel: string;
+      awayLabel: string;
+      homeFilled?: boolean;
+      awayFilled?: boolean;
+      homePlayerId?: string | null;
+      awayPlayerId?: string | null;
+      homeSourceLabel?: string;
+      awaySourceLabel?: string;
+      homeOutcome?: string;
+      awayOutcome?: string;
+      homeScoreText?: string;
+      awayScoreText?: string;
+    }>;
+  }> | null;
+  currentUserId?: string | null;
+  currentUserNickname?: string | null;
+}) {
+  return (
+    <div
+      id="grouping"
+      className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8"
+    >
+      <h2 className="mb-4 text-xl font-bold text-white">分组结果</h2>
+      {!groupingPayload ? (
+        <p className="text-slate-400">
+          报名截止后由发起人或管理员手动生成并确认分组结果。
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {alreadyRegistered ? (
+            myGroup ? (
+              <div className="rounded-xl border border-slate-700 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="font-semibold text-cyan-100">
+                    {myGroup.name}
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    组均积分 {myGroup.averagePoints}
+                  </span>
+                </div>
+                <ul className="space-y-1 text-sm text-slate-200">
+                  {myGroup.players.map((player) => (
+                    <li key={player.id} className="flex justify-between">
+                      <span
+                        className={
+                          currentUserId && player.id === currentUserId
+                            ? "font-semibold text-amber-200"
+                            : ""
+                        }
+                      >
+                        {player.nickname}
+                        {currentUserId && player.id === currentUserId
+                          ? "（我）"
+                          : ""}
+                      </span>
+                      <span className="text-slate-400">
+                        {player.points} 分 / ELO {player.eloRating}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-slate-400">你已报名，当前尚未分配到小组。</p>
+            )
+          ) : (
+            <p className="text-slate-400">
+              你未报名该比赛，当前不展示你的比赛进程；可查看淘汰赛签表。
+            </p>
+          )}
+
+          {groupingPayload.knockout && (
+            <div className="space-y-2">
+              <h3 className="font-semibold text-cyan-100">
+                {groupingPayload.knockout.stage}（淘汰赛签表）
+              </h3>
+              <p className="text-xs text-slate-400">
+                当前展示为签位示意，待小组赛结束后将按晋级结果填充具体选手。
+              </p>
+              <KnockoutBracket
+                rounds={filledKnockoutRounds ?? groupingPayload.knockout.rounds}
+                currentUserId={currentUserId}
+                currentUserNickname={currentUserNickname}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

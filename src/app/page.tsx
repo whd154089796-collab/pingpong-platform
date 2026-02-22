@@ -1,31 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CalendarRange, Medal, Sparkles, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { MatchStatus } from "@prisma/client";
 import MatchCard from "@/components/match/MatchCard";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-
-const quickActions = [
-  {
-    href: "/matchs",
-    label: "进入比赛大厅",
-    desc: "查看全部赛事",
-    icon: CalendarRange,
-  },
-  {
-    href: "/rankings",
-    label: "查看排行榜",
-    desc: "追踪 ELO 与积分",
-    icon: Medal,
-  },
-  {
-    href: "/matchs/create",
-    label: "发布新比赛",
-    desc: "快速创建赛事",
-    icon: Sparkles,
-  },
-];
 
 const statusLabelMap: Record<MatchStatus, "报名中" | "进行中" | "已结束"> = {
   registration: "报名中",
@@ -167,8 +146,8 @@ export default async function Home() {
 
   return (
     <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-700/70 bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 p-8 shadow-xl shadow-black/20 md:p-10">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.18),transparent_48%)]" />
+      <section className="relative overflow-hidden rounded-3xl border border-slate-700/70 bg-linear-to-br from-slate-800 via-slate-800 to-slate-900 p-8 shadow-xl shadow-black/20 md:p-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_48%)]" />
         <div className="relative space-y-8">
           <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-5 md:p-6">
             <div className="grid gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
@@ -200,24 +179,41 @@ export default async function Home() {
           {currentUser ? (
             <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-5">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs tracking-[0.2em] text-cyan-300">
-                    我的数据总览
-                  </p>
-                  <h2 className="mt-1 text-2xl font-bold text-white">
-                    {currentUser.nickname}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-300">
-                    本周 ELO 变化：
-                    <span
-                      className={
-                        eloDelta7d >= 0 ? "text-emerald-300" : "text-rose-300"
-                      }
-                    >
-                      {eloDelta7d >= 0 ? "+" : ""}
-                      {eloDelta7d}
-                    </span>
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="h-20 w-20 overflow-hidden rounded-full border border-slate-600 bg-slate-800">
+                    {currentUser.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={currentUser.avatarUrl}
+                        alt={currentUser.nickname}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-2xl font-semibold text-slate-200">
+                        {currentUser.nickname[0]?.toUpperCase() ?? "?"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs tracking-[0.2em] text-cyan-300">
+                      我的数据总览
+                    </p>
+                    <h2 className="mt-1 text-2xl font-bold text-white">
+                      {currentUser.nickname}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-300">
+                      本周 ELO 变化：
+                      <span
+                        className={
+                          eloDelta7d >= 0 ? "text-emerald-300" : "text-rose-300"
+                        }
+                      >
+                        {eloDelta7d >= 0 ? "+" : ""}
+                        {eloDelta7d}
+                      </span>
+                    </p>
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-center">
@@ -369,18 +365,18 @@ export default async function Home() {
             暂无比赛，快去发布第一场比赛吧。
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
             {latestMatches.map((match) => (
               <MatchCard
                 key={match.id}
                 id={match.id}
                 title={match.title}
-                date={match.dateTime.toLocaleDateString("zh-CN")}
+                type={match.type}
+                matchTime={match.dateTime.toISOString()}
+                registrationDeadline={match.registrationDeadline.toISOString()}
                 location={match.location ?? "待定"}
                 participants={match._count.registrations}
-                maxParticipants={match.maxParticipants}
                 status={statusLabelMap[match.status]}
-                hasGrouping={Boolean(match.groupingResult)}
               />
             ))}
           </div>

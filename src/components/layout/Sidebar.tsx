@@ -1,13 +1,16 @@
 import Link from "next/link";
 import {
+  ShieldCheck,
   CalendarRange,
   ChevronRight,
   Home,
+  Mail,
   Medal,
   PlusSquare,
   UserRound,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
+import { getPendingInviteCountForUser } from "@/lib/doubles";
 
 const navItems = [
   { href: "/", label: "首页", icon: Home },
@@ -18,13 +21,24 @@ const navItems = [
 
 export default async function Sidebar() {
   const currentUser = await getCurrentUser();
+  const pendingInviteCount = currentUser
+    ? await getPendingInviteCountForUser(currentUser.id)
+    : 0;
+  const hasPendingInvites = pendingInviteCount > 0;
   const resolvedNavItems =
     currentUser?.role === "admin"
       ? [
+          { href: "/admin", label: "管理员控制台", icon: ShieldCheck },
           { href: "/matchs/create", label: "发布比赛", icon: PlusSquare },
+          { href: "/team-invites", label: "组队信息", icon: Mail },
           ...navItems,
         ]
-      : navItems;
+      : currentUser
+        ? [
+            { href: "/team-invites", label: "组队信息", icon: Mail },
+            ...navItems,
+          ]
+        : navItems;
   const avatarFallback = (
     currentUser?.nickname?.trim()?.[0] ?? "?"
   ).toUpperCase();
@@ -105,6 +119,12 @@ export default async function Sidebar() {
             >
               <Icon className="h-4 w-4 text-cyan-300 transition group-hover:scale-105" />
               <span className="text-sm font-medium">{label}</span>
+              {label === "组队信息" && hasPendingInvites ? (
+                <span
+                  className="ml-auto inline-flex h-2.5 w-2.5 rounded-full bg-rose-400"
+                  aria-label="有新的组队邀请"
+                />
+              ) : null}
             </Link>
           ))}
         </nav>

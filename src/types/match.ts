@@ -7,7 +7,6 @@ export interface Match {
   type: 'single' | 'double' | 'team'
   status: 'registration' | 'ongoing' | 'finished'
   participants: User[]
-  maxParticipants: number
   createdBy: string
   createdAt: string
 }

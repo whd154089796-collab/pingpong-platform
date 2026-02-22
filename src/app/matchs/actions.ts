@@ -7,6 +7,13 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { generateGroupingPayload } from '@/lib/tournament'
 import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
+import {
+  registerDoublesTeamByUser,
+  removeRegisteredDoublesTeamByMember,
+  unregisterDoublesTeamByUser,
+} from '@/lib/doubles'
+
+const UNLIMITED_MAX_PARTICIPANTS = 2147483647
 
 export type MatchFormState = {
   error?: string
@@ -393,14 +400,9 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
   const registrationDeadline = String(formData.get('registrationDeadline') ?? '')
   const type = String(formData.get('type') ?? 'single') as MatchType
   const format = String(formData.get('format') ?? 'group_only') as CompetitionFormat
-  const maxParticipants = Number(formData.get('maxParticipants') ?? 0)
 
   if (!title || !location || !date || !time || !registrationDeadline) {
     return { error: '请完整填写必填项。' }
-  }
-
-  if (!Number.isFinite(maxParticipants) || maxParticipants < 2) {
-    return { error: '最大人数至少为 2。' }
   }
 
   const matchDate = parseDateTime(date, time)
@@ -423,7 +425,7 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
       location,
       type,
       format,
-      maxParticipants,
+      maxParticipants: UNLIMITED_MAX_PARTICIPANTS,
       status: MatchStatus.registration,
       createdBy: currentUser.id,
       rule: {
@@ -442,15 +444,21 @@ export async function registerMatchAction(matchId: string): Promise<MatchFormSta
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录后报名。' }
 
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: { _count: { select: { registrations: true } } },
-  })
+  const match = await prisma.match.findUnique({ where: { id: matchId } })
 
   if (!match) return { error: '比赛不存在。' }
   if (match.status !== MatchStatus.registration) return { error: '当前比赛不在报名阶段。' }
   if (new Date() >= match.registrationDeadline) return { error: '报名已截止。' }
-  if (match._count.registrations >= match.maxParticipants) return { error: '名额已满。' }
+
+  if (match.type === 'double') {
+    const result = await registerDoublesTeamByUser(matchId, currentUser.id)
+    if (!result.ok) return { error: result.error }
+
+    revalidatePath('/matchs')
+    revalidatePath('/team-invites')
+    revalidatePath(`/matchs/${matchId}`)
+    return { success: '双打小队报名成功！' }
+  }
 
   try {
     await prisma.registration.create({
@@ -469,21 +477,13 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: { _count: { select: { registrations: true } } },
-  })
+  const match = await prisma.match.findUnique({ where: { id: matchId } })
   if (!match) return { error: '比赛不存在。' }
   if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改赛制。' }
   if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可修改赛制。' }
 
   const format = String(formData.get('format') ?? match.format) as CompetitionFormat
   const deadlineInput = String(formData.get('registrationDeadline') ?? '')
-  const maxParticipants = Number(formData.get('maxParticipants') ?? match.maxParticipants)
-
-  if (!Number.isFinite(maxParticipants) || maxParticipants < match._count.registrations) {
-    return { error: '人数需 >= 已报名人数。' }
-  }
 
   const nextDeadline = deadlineInput ? new Date(deadlineInput) : match.registrationDeadline
   if (Number.isNaN(nextDeadline.getTime())) return { error: '截止时间格式错误。' }
@@ -494,7 +494,6 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
     data: {
       format,
       registrationDeadline: nextDeadline,
-      maxParticipants,
       groupingGeneratedAt: null,
       status: MatchStatus.registration,
     },
@@ -514,6 +513,16 @@ export async function unregisterMatchAction(matchId: string): Promise<MatchFormS
   if (!match) return { error: '比赛不存在。' }
   if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可退出。' }
 
+  if (match.type === 'double') {
+    const result = await unregisterDoublesTeamByUser(matchId, currentUser.id)
+    if (!result.ok) return { error: result.error }
+
+    revalidatePath('/team-invites')
+    revalidatePath('/matchs')
+    revalidatePath(`/matchs/${matchId}`)
+    return { success: '已退出双打小队报名。' }
+  }
+
   const deleted = await prisma.registration.deleteMany({
     where: { matchId, userId: currentUser.id },
   })
@@ -531,10 +540,7 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: { _count: { select: { registrations: true } } },
-  })
+  const match = await prisma.match.findUnique({ where: { id: matchId } })
   if (!match) return { error: '比赛不存在。' }
   if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改比赛。' }
   if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可修改。' }
@@ -546,14 +552,9 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
   const time = String(formData.get('time') ?? '')
   const type = String(formData.get('type') ?? 'single') as MatchType
   const format = String(formData.get('format') ?? match.format) as CompetitionFormat
-  const maxParticipants = Number(formData.get('maxParticipants') ?? match.maxParticipants)
   const deadlineInput = String(formData.get('registrationDeadline') ?? '')
 
   if (!title || !location || !date || !time) return { error: '请完整填写必填项。' }
-
-  if (!Number.isFinite(maxParticipants) || maxParticipants < match._count.registrations) {
-    return { error: '人数需 >= 已报名人数。' }
-  }
 
   const matchDate = parseDateTime(date, time)
   if (Number.isNaN(matchDate.getTime())) return { error: '比赛时间格式无效。' }
@@ -571,7 +572,6 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
       dateTime: matchDate,
       type,
       format,
-      maxParticipants,
       registrationDeadline: deadline,
       groupingGeneratedAt: null,
       status: MatchStatus.registration,
@@ -947,6 +947,18 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
 
   if (match.results.length > 0) {
     return { error: '该选手已有赛果记录，不可移除。' }
+  }
+
+  if (match.type === 'double') {
+    const removeResult = await removeRegisteredDoublesTeamByMember(matchId, userId)
+    if (!removeResult.ok) {
+      return { error: removeResult.error }
+    }
+
+    revalidatePath('/matchs')
+    revalidatePath('/team-invites')
+    revalidatePath(`/matchs/${matchId}`)
+    return { success: '已移除该双打小队。' }
   }
 
   await prisma.registration.deleteMany({ where: { matchId, userId } })

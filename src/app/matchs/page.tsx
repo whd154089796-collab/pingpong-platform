@@ -83,18 +83,18 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
       </div>
 
       {matches.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
           {matches.map((match) => (
             <MatchCard
               key={match.id}
               id={match.id}
               title={match.title}
-              date={new Date(match.dateTime).toLocaleDateString("zh-CN")}
+              type={match.type}
+              matchTime={match.dateTime.toISOString()}
+              registrationDeadline={match.registrationDeadline.toISOString()}
               location={match.location ?? "待定"}
               participants={match._count.registrations}
-              maxParticipants={match.maxParticipants}
               status={statusLabelMap[match.status]}
-              hasGrouping={Boolean(match.groupingResult)}
             />
           ))}
         </div>

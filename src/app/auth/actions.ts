@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { SESSION_COOKIE_NAME } from '@/lib/auth'
 
-const USTC_MAIL_SUFFIX = '@mail.ustc.edu.cn'
 const EMAIL_VERIFY_TTL_MS = 1000 * 60 * 30
 
 export type AuthFormState = {
@@ -103,9 +102,10 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
     return { error: '请完整填写昵称、邮箱和密码。' }
   }
 
-  if (!email.endsWith(USTC_MAIL_SUFFIX)) {
-    return { error: '仅支持 @mail.ustc.edu.cn 邮箱注册。' }
-  }
+  // 临时关闭 USTC 邮箱后缀限制（测试账号阶段）
+  // if (!email.endsWith(USTC_MAIL_SUFFIX)) {
+  //   return { error: '仅支持 @mail.ustc.edu.cn 邮箱注册。' }
+  // }
 
   if (password.length < 6) {
     return { error: '密码至少需要 6 位。' }
@@ -213,15 +213,7 @@ export async function verifyEmailTokenAction(token: string) {
     }),
   ])
 
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE_NAME, record.userId, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  })
-
-  return { success: '邮箱验证成功，已为你自动登录。' }
+  return { success: '邮箱验证成功，请返回登录页登录。' }
 }
 
 export async function logoutAction() {

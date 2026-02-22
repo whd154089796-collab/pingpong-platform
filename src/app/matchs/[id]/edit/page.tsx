@@ -1,27 +1,37 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { notFound, redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
-import EditMatchForm from '@/components/match/EditMatchForm'
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import EditMatchForm from "@/components/match/EditMatchForm";
 
-export default async function EditMatchPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export default async function EditMatchPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
 
   const [currentUser, match] = await Promise.all([
     getCurrentUser(),
     prisma.match.findUnique({ where: { id } }),
-  ])
+  ]);
 
-  if (!match) notFound()
-  if (!currentUser) redirect('/auth')
-  if (currentUser.id !== match.createdBy) redirect(`/matchs/${id}`)
+  if (!match) notFound();
+  if (!currentUser) redirect("/auth");
+  if (currentUser.id !== match.createdBy) redirect(`/matchs/${id}`);
 
-  const localDeadline = new Date(match.registrationDeadline.getTime() - match.registrationDeadline.getTimezoneOffset() * 60000)
+  const localDeadline = new Date(
+    match.registrationDeadline.getTime() -
+      match.registrationDeadline.getTimezoneOffset() * 60000,
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
-      <Link href={`/matchs/${id}`} className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-200">
+      <Link
+        href={`/matchs/${id}`}
+        className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-200"
+      >
         <ArrowLeft className="h-4 w-4" />
         返回比赛详情
       </Link>
@@ -32,17 +42,16 @@ export default async function EditMatchPage({ params }: { params: Promise<{ id: 
           matchId={id}
           initial={{
             title: match.title,
-            description: match.description ?? '',
-            location: match.location ?? '',
+            description: match.description ?? "",
+            location: match.location ?? "",
             date: match.dateTime.toISOString().slice(0, 10),
             time: match.dateTime.toISOString().slice(11, 16),
             type: match.type,
             format: match.format,
-            maxParticipants: match.maxParticipants,
             registrationDeadline: localDeadline.toISOString().slice(0, 16),
           }}
         />
       </div>
     </div>
-  )
+  );
 }

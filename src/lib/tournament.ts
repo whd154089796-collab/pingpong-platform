@@ -18,6 +18,12 @@ type BracketRound = {
   matches: BracketMatch[]
 }
 
+type QualifierLabel = {
+  groupIndex: number
+  rank: number
+  label: string
+}
+
 type GroupingPayload = {
   generatedAt: string
   format: CompetitionFormat
@@ -57,22 +63,17 @@ function isPowerOfTwo(value: number) {
   return value > 0 && (value & (value - 1)) === 0
 }
 
-function buildBracketRounds(qualifiedLabels: string[]): BracketRound[] {
-  const size = qualifiedLabels.length
+function getRoundNameBySize(size: number) {
+  return size === 2 ? '决赛' : size === 4 ? '半决赛' : size === 8 ? '1/4 决赛' : '淘汰赛首轮'
+}
+
+function buildBracketRounds(firstRoundMatches: BracketMatch[], bracketSize: number): BracketRound[] {
   const rounds: BracketRound[] = []
 
-  let currentRoundMatches = Array.from({ length: size / 2 }, (_, i) => {
-    const seedA = i + 1
-    const seedB = size - i
-    return {
-      id: `R1-M${i + 1}`,
-      homeLabel: qualifiedLabels[seedA - 1],
-      awayLabel: qualifiedLabels[seedB - 1],
-    }
-  })
+  let currentRoundMatches = firstRoundMatches
 
   rounds.push({
-    name: size === 2 ? '决赛' : size === 4 ? '半决赛' : size === 8 ? '1/4 决赛' : '淘汰赛首轮',
+    name: getRoundNameBySize(bracketSize),
     matches: currentRoundMatches,
   })
 
@@ -94,6 +95,86 @@ function buildBracketRounds(qualifiedLabels: string[]): BracketRound[] {
   }
 
   return rounds
+}
+
+function buildFirstRoundMatches(
+  groups: Array<{ name: string }>,
+  qualifiersPerGroup: number,
+): BracketMatch[] {
+  const groupCount = groups.length
+
+  const qualifiersByGroup: QualifierLabel[][] = groups.map((group, groupIndex) =>
+    Array.from({ length: qualifiersPerGroup }, (_, rankIndex) => ({
+      groupIndex,
+      rank: rankIndex + 1,
+      label: `${group.name}第 ${rankIndex + 1} 名`,
+    })),
+  )
+
+  if (qualifiersPerGroup === 2 && groupCount > 1) {
+    return Array.from({ length: groupCount }, (_, i) => {
+      const mirrorGroupIndex = groupCount - 1 - i
+      const home = qualifiersByGroup[i][0]
+      const away = qualifiersByGroup[mirrorGroupIndex][1]
+
+      return {
+        id: `R1-M${i + 1}`,
+        homeLabel: home.label,
+        awayLabel: away.label,
+      }
+    })
+  }
+
+  const pool = qualifiersByGroup.flat().sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank
+    return a.groupIndex - b.groupIndex
+  })
+
+  const matches: BracketMatch[] = []
+  const used = new Set<number>()
+
+  const getNextUnused = () => pool.findIndex((_, index) => !used.has(index))
+
+  while (used.size < pool.length) {
+    const firstIndex = getNextUnused()
+    if (firstIndex < 0) break
+
+    used.add(firstIndex)
+    const first = pool[firstIndex]
+
+    let bestIndex = -1
+    let bestScore = Number.NEGATIVE_INFINITY
+
+    for (let index = pool.length - 1; index >= 0; index -= 1) {
+      if (used.has(index)) continue
+      const candidate = pool[index]
+
+      const score =
+        (candidate.groupIndex !== first.groupIndex ? 1000 : 0) +
+        candidate.rank * 10 +
+        Math.abs(candidate.groupIndex - first.groupIndex)
+
+      if (score > bestScore) {
+        bestScore = score
+        bestIndex = index
+      }
+    }
+
+    if (bestIndex < 0) {
+      break
+    }
+
+    used.add(bestIndex)
+    const second = pool[bestIndex]
+
+    matches.push({
+      id: `R1-M${matches.length + 1}`,
+      homeLabel: first.label,
+      awayLabel: second.label,
+    })
+  }
+
+  return matches
 }
 
 export function generateGroupingPayload(
@@ -136,9 +217,7 @@ export function generateGroupingPayload(
       throw new Error('存在小组人数小于设定晋级人数，请调小组数或晋级人数。')
     }
 
-    const qualifiedLabels = groups.flatMap((group) =>
-      Array.from({ length: qualifiersPerGroup }, (_, idx) => `${group.name}第 ${idx + 1} 名`),
-    )
+    const firstRoundMatches = buildFirstRoundMatches(groups, qualifiersPerGroup)
 
     payload.knockout = {
       stage:
@@ -150,7 +229,7 @@ export function generateGroupingPayload(
               ? '1/4 决赛'
               : '淘汰赛首轮',
       bracketSize: totalQualified,
-      rounds: buildBracketRounds(qualifiedLabels),
+      rounds: buildBracketRounds(firstRoundMatches, totalQualified),
     }
   }
 
