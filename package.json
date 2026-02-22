@@ -9,28 +9,18 @@
     "lint": "eslint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "match:bulk-register": "node scripts/bulk-register-match.js"
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.19.2",
-    "@radix-ui/react-avatar": "^1.1.11",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-tabs": "^1.1.13",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-hook-form": "^7.71.1",
     "recharts": "^3.7.0",
     "resend": "^6.9.2",
-    "tailwind-merge": "^3.4.0",
-    "zod": "^4.3.6",
-    "zustand": "^5.0.11"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
