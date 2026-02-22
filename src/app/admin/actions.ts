@@ -57,6 +57,26 @@ type AdminDashboardUserRow = {
   createdMatches: Array<{ createdAt: Date }>
 }
 
+type AdminDashboardMatchRow = {
+  id: string
+  title: string
+  status: string
+  dateTime: Date
+  registrationDeadline: Date
+  _count: {
+    registrations: number
+  }
+}
+
+type AdminEditableUserRow = {
+  id: string
+  role: 'user' | 'admin'
+}
+
+type AdminRegisterUserRow = {
+  id: string
+}
+
 const INITIAL_ADMIN_DASHBOARD_STATE: AdminDashboardState = {
   unlocked: false,
   users: [],
@@ -288,7 +308,7 @@ async function fetchAdminDashboardData() {
     }
   })
 
-  const mappedMatches: AdminDashboardMatch[] = matches.map((match) => ({
+  const mappedMatches: AdminDashboardMatch[] = matches.map((match: AdminDashboardMatchRow) => ({
     id: match.id,
     title: match.title,
     status: match.status,
@@ -308,7 +328,7 @@ function splitEmails(raw: string) {
     new Set(
       raw
         .split(/[\s,;\n\r]+/)
-        .map((item) => item.trim().toLowerCase())
+        .map((item: string) => item.trim().toLowerCase())
         .filter(Boolean),
     ),
   )
@@ -319,7 +339,7 @@ function splitSelectedUserIds(raw: string) {
     new Set(
       raw
         .split(',')
-        .map((item) => item.trim())
+        .map((item: string) => item.trim())
         .filter(Boolean),
     ),
   )
@@ -486,13 +506,13 @@ export async function adminDashboardAction(
       })
 
       const protectedIds = new Set<string>([admin.userId])
-      targets.forEach((target) => {
+      targets.forEach((target: AdminEditableUserRow) => {
         if (target.role === 'admin') {
           protectedIds.add(target.id)
         }
       })
 
-      const editableIds = selectedUserIds.filter((id) => !protectedIds.has(id))
+      const editableIds = selectedUserIds.filter((id: string) => !protectedIds.has(id))
       if (editableIds.length === 0) {
         throw new Error('未找到可操作用户（管理员账号不可批量封禁）。')
       }
@@ -543,13 +563,13 @@ export async function adminDashboardAction(
       })
 
       const protectedIds = new Set<string>([admin.userId])
-      targets.forEach((target) => {
+      targets.forEach((target: AdminEditableUserRow) => {
         if (target.role === 'admin') {
           protectedIds.add(target.id)
         }
       })
 
-      const deletableIds = selectedUserIds.filter((id) => !protectedIds.has(id))
+      const deletableIds = selectedUserIds.filter((id: string) => !protectedIds.has(id))
       if (deletableIds.length === 0) {
         throw new Error('未找到可删除用户（管理员账号不可批量删除）。')
       }
@@ -673,7 +693,7 @@ export async function adminDashboardAction(
       const toRegister = users
 
       await prisma.registration.createMany({
-        data: toRegister.map((user) => ({
+        data: toRegister.map((user: AdminRegisterUserRow) => ({
           matchId,
           userId: user.id,
           status: 'registered',
