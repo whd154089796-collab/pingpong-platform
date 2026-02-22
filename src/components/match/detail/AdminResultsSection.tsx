@@ -154,6 +154,7 @@ export default function AdminResultsSection({
                     item.id,
                   )}
                 >
+                  <input type="hidden" name="csrfToken" value="" />
                   <button
                     type="submit"
                     className="rounded-md border border-emerald-500/40 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10"
@@ -168,6 +169,7 @@ export default function AdminResultsSection({
                     item.id,
                   )}
                 >
+                  <input type="hidden" name="csrfToken" value="" />
                   <button
                     type="submit"
                     className="rounded-md border border-rose-500/40 px-3 py-1 text-xs text-rose-300 hover:bg-rose-500/10"

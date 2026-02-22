@@ -119,6 +119,7 @@ export default function AdminDashboardClient() {
         </p>
 
         <form action={formAction} className="mt-6">
+          <input type="hidden" name="csrfToken" value="" />
           <input type="hidden" name="intent" value="sendEmailChallenge" />
           <button
             type="submit"
@@ -130,6 +131,7 @@ export default function AdminDashboardClient() {
         </form>
 
         <form action={formAction} className="mt-4 space-y-3">
+          <input type="hidden" name="csrfToken" value="" />
           <input type="hidden" name="intent" value="reauth" />
           <label className="block space-y-1 text-sm text-slate-300">
             <span>邮箱验证码</span>
@@ -188,6 +190,7 @@ export default function AdminDashboardClient() {
           action={formAction}
           className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6"
         >
+          <input type="hidden" name="csrfToken" value="" />
           <input type="hidden" name="intent" value="createTestAccounts" />
           <h2 className="text-lg font-semibold text-white">批量创建测试账号</h2>
           <div className="mt-4 grid gap-3">
@@ -288,6 +291,7 @@ export default function AdminDashboardClient() {
           action={formAction}
           className="mt-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4"
         >
+          <input type="hidden" name="csrfToken" value="" />
           <input type="hidden" name="intent" value="bulkRegisterMatch" />
           <input
             type="hidden"
@@ -324,6 +328,7 @@ export default function AdminDashboardClient() {
 
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <form action={formAction}>
+            <input type="hidden" name="csrfToken" value="" />
             <input type="hidden" name="intent" value="bulkToggleBan" />
             <input
               type="hidden"
@@ -343,6 +348,7 @@ export default function AdminDashboardClient() {
           </form>
 
           <form action={formAction}>
+            <input type="hidden" name="csrfToken" value="" />
             <input type="hidden" name="intent" value="bulkDeleteUsers" />
             <input
               type="hidden"
@@ -454,6 +460,7 @@ export default function AdminDashboardClient() {
                 action={formAction}
                 className="mt-3 grid gap-3 md:grid-cols-3"
               >
+                <input type="hidden" name="csrfToken" value="" />
                 <input type="hidden" name="intent" value="updateUser" />
                 <input type="hidden" name="userId" value={user.id} />
                 <input

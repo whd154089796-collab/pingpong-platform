@@ -1,10 +1,11 @@
 'use server'
 
-import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
+import { hashPassword } from '@/lib/password'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -45,12 +46,6 @@ const INITIAL_ADMIN_DASHBOARD_STATE: AdminDashboardState = {
   unlocked: false,
   users: [],
   matches: [],
-}
-
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString('hex')
-  const hash = scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
 }
 
 function hashToken(token: string) {

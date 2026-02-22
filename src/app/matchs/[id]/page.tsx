@@ -426,6 +426,7 @@ export default async function MatchDetailPage({
                 method="get"
                 className="flex gap-2"
               >
+                <input type="hidden" name="csrfToken" value="" />
                 <input
                   type="text"
                   name="inviteQ"
@@ -462,6 +463,7 @@ export default async function MatchDetailPage({
                         <form
                           action={sendDoublesInviteAction.bind(null, match.id)}
                         >
+                          <input type="hidden" name="csrfToken" value="" />
                           <input
                             type="hidden"
                             name="inviteeId"
@@ -496,6 +498,7 @@ export default async function MatchDetailPage({
                         <div className="flex items-center gap-2">
                           {isReceived ? (
                             <form action={acceptDoublesInviteAction}>
+                              <input type="hidden" name="csrfToken" value="" />
                               <input
                                 type="hidden"
                                 name="inviteId"
@@ -510,6 +513,7 @@ export default async function MatchDetailPage({
                             </form>
                           ) : (
                             <form action={revokeDoublesInviteAction}>
+                              <input type="hidden" name="csrfToken" value="" />
                               <input
                                 type="hidden"
                                 name="inviteId"

@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { CSRF_COOKIE_NAME, CSRF_FORM_FIELD } from "@/lib/csrf-constants";
-
-function readCookie(name: string) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : "";
-}
+import { CSRF_FORM_FIELD } from "@/lib/csrf-constants";
 
 function ensureTokenField(form: HTMLFormElement, token: string) {
   if (!token) return;
@@ -25,20 +19,44 @@ function ensureTokenField(form: HTMLFormElement, token: string) {
 
 export default function CsrfFormInjector() {
   useEffect(() => {
-    const applyToAllForms = () => {
-      const token = readCookie(CSRF_COOKIE_NAME);
+    let tokenCache = "";
+
+    const fetchToken = async () => {
+      if (tokenCache) return tokenCache;
+      const response = await fetch("/api/csrf-token", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!response.ok) return "";
+      const payload = (await response.json()) as { token?: string };
+      tokenCache = payload.token ?? "";
+      return tokenCache;
+    };
+
+    const applyToAllForms = async () => {
+      const token = await fetchToken();
       if (!token) return;
       document.querySelectorAll("form").forEach((form) => {
         ensureTokenField(form as HTMLFormElement, token);
       });
     };
 
-    applyToAllForms();
+    void applyToAllForms();
 
-    const handleSubmit = (event: Event) => {
+    const handleSubmit = async (event: Event) => {
       const form = event.target;
       if (!(form instanceof HTMLFormElement)) return;
-      const token = readCookie(CSRF_COOKIE_NAME);
+
+      if (!tokenCache) {
+        event.preventDefault();
+        const token = await fetchToken();
+        ensureTokenField(form, token);
+        form.requestSubmit();
+        return;
+      }
+
+      const token = await fetchToken();
       ensureTokenField(form, token);
     };
 

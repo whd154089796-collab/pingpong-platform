@@ -71,6 +71,7 @@ export default function ReportResultForm({
         action={submitAction}
         className="space-y-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4"
       >
+        <input type="hidden" name="csrfToken" value="" />
         <p className="text-sm text-slate-300">
           {mode === "knockout"
             ? "当前为淘汰赛阶段，请登记本轮对局结果。提交后需由对手或管理员确认。"
@@ -230,6 +231,7 @@ export default function ReportResultForm({
                   )}
                   className="mt-2"
                 >
+                  <input type="hidden" name="csrfToken" value="" />
                   <button
                     type="submit"
                     className="rounded-md border border-emerald-500/40 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10"

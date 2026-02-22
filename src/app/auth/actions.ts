@@ -1,34 +1,18 @@
 'use server'
 
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { SESSION_COOKIE_NAME } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
+import { hashPassword, verifyPassword } from '@/lib/password'
 
 const EMAIL_VERIFY_TTL_MS = 1000 * 60 * 30
 
 export type AuthFormState = {
   error?: string
   success?: string
-}
-
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString('hex')
-  const hash = scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
-}
-
-function verifyPassword(password: string, storedHash: string) {
-  const [salt, hash] = storedHash.split(':')
-  if (!salt || !hash) return false
-
-  const hashedBuffer = scryptSync(password, salt, 64)
-  const sourceBuffer = Buffer.from(hash, 'hex')
-
-  if (hashedBuffer.length !== sourceBuffer.length) return false
-  return timingSafeEqual(hashedBuffer, sourceBuffer)
 }
 
 function hashToken(token: string) {
@@ -151,8 +135,20 @@ export async function loginAction(_: AuthFormState, formData: FormData): Promise
   }
 
   const user = await prisma.user.findUnique({ where: { email } })
-  if (!user?.hashedPassword || !verifyPassword(password, user.hashedPassword)) {
+  if (!user?.hashedPassword) {
     return { error: '邮箱或密码错误。' }
+  }
+
+  const verifyResult = verifyPassword(password, user.hashedPassword)
+  if (!verifyResult.ok) {
+    return { error: '邮箱或密码错误。' }
+  }
+
+  if (verifyResult.needsRehash) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { hashedPassword: hashPassword(password) },
+    })
   }
 
   if (!user.emailVerifiedAt) {
@@ -182,8 +178,20 @@ export async function resendVerifyEmailAction(_: AuthFormState, formData: FormDa
   }
 
   const user = await prisma.user.findUnique({ where: { email } })
-  if (!user?.hashedPassword || !verifyPassword(password, user.hashedPassword)) {
+  if (!user?.hashedPassword) {
     return { error: '邮箱或密码错误。' }
+  }
+
+  const verifyResult = verifyPassword(password, user.hashedPassword)
+  if (!verifyResult.ok) {
+    return { error: '邮箱或密码错误。' }
+  }
+
+  if (verifyResult.needsRehash) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { hashedPassword: hashPassword(password) },
+    })
   }
 
   if (user.emailVerifiedAt) {

@@ -26,6 +26,7 @@ export default function RegisterMatchButton({
 
   return (
     <form action={formAction} className="space-y-2">
+      <input type="hidden" name="csrfToken" value="" />
       <button
         disabled={disabled || pending}
         className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-50"

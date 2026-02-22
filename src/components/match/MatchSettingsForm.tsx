@@ -24,6 +24,7 @@ export default function MatchSettingsForm({
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="csrfToken" value="" />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label
