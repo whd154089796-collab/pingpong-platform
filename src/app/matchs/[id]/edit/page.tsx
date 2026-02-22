@@ -25,6 +25,9 @@ export default async function EditMatchPage({
     match.registrationDeadline.getTime() -
       match.registrationDeadline.getTimezoneOffset() * 60000,
   );
+  const localMatchDateTime = new Date(
+    match.dateTime.getTime() - match.dateTime.getTimezoneOffset() * 60000,
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -44,8 +47,8 @@ export default async function EditMatchPage({
             title: match.title,
             description: match.description ?? "",
             location: match.location ?? "",
-            date: match.dateTime.toISOString().slice(0, 10),
-            time: match.dateTime.toISOString().slice(11, 16),
+            date: localMatchDateTime.toISOString().slice(0, 10),
+            time: localMatchDateTime.toISOString().slice(11, 16),
             type: match.type,
             format: match.format,
             registrationDeadline: localDeadline.toISOString().slice(0, 16),

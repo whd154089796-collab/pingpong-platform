@@ -10,20 +10,58 @@ export default function CreateMatchForm() {
     createMatchAction,
     initialState,
   );
-  const [format, setFormat] = useState<"group_only" | "group_then_knockout">(
-    "group_only",
-  );
+  const [matchFormat, setMatchFormat] = useState<
+    "group_only" | "group_then_knockout"
+  >("group_only");
+
+  // Native date/time inputs: yyyy-MM-dd / HH:mm
+  const [matchDate, setMatchDate] = useState("");
+  const [matchTime, setMatchTime] = useState("19:00");
+  const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("17:00");
+  const timezoneOffset = String(new Date().getTimezoneOffset());
 
   const formatTips = useMemo(() => {
-    if (format === "group_then_knockout") {
+    if (matchFormat === "group_then_knockout") {
       return "先按积分均衡分组，再进入淘汰赛。报名截止后由发起人/管理员手动配置组数与晋级人数并确认发布。";
     }
     return "仅进行分组赛。报名截止后由发起人/管理员手动配置组数并确认发布。";
-  }, [format]);
+  }, [matchFormat]);
+
+  function toDateTime(date: string, time: string) {
+    if (!date || !time) return null;
+    return new Date(`${date}T${time}`);
+  }
+
+  const matchDateTime = toDateTime(matchDate, matchTime);
+  const deadlineDateTime = toDateTime(deadlineDate, deadlineTime);
+
+  const isTimeValid =
+    matchDate !== "" &&
+    deadlineDate !== "" &&
+    matchDateTime !== null &&
+    deadlineDateTime !== null &&
+    deadlineDateTime < matchDateTime;
+
+  const timeError =
+    matchDate &&
+    deadlineDate &&
+    matchDateTime &&
+    deadlineDateTime &&
+    !isTimeValid
+      ? "报名截止时间必须早于比赛开始时间。"
+      : null;
+
+  // Hidden fields: keep the names the server action expects
+  const registrationDeadlineValue = deadlineDateTime
+    ? `${deadlineDate}T${deadlineTime}`
+    : "";
 
   return (
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="csrfToken" defaultValue="" />
+
+      {/* ===== 基础信息 ===== */}
       <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
         <h2 className="mb-4 text-sm font-semibold tracking-wide text-cyan-200">
           基础信息
@@ -77,56 +115,78 @@ export default function CreateMatchForm() {
         </div>
       </section>
 
+      {/* ===== 时间设置 ===== */}
       <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
         <h2 className="mb-4 text-sm font-semibold tracking-wide text-cyan-200">
           时间设置
         </h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="date" className="mb-1 block text-sm text-slate-300">
-              比赛日期 *
-            </label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              required
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-slate-100"
-            />
+
+        {/* Hidden fields for server */}
+        <input type="hidden" name="date" value={matchDate} />
+        <input type="hidden" name="time" value={matchTime} />
+        <input type="hidden" name="timezoneOffset" value={timezoneOffset} />
+        <input
+          type="hidden"
+          name="registrationDeadline"
+          value={registrationDeadlineValue}
+        />
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          {/* -- 比赛开始时间 -- */}
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+            <p className="mb-3 text-sm font-medium text-slate-200">
+              比赛开始时间 *
+            </p>
+            <div className="space-y-3">
+              <input
+                type="date"
+                aria-label="比赛日期"
+                value={matchDate}
+                onChange={(e) => setMatchDate(e.target.value)}
+                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+              />
+              <input
+                type="time"
+                aria-label="比赛时间"
+                value={matchTime}
+                step={1800}
+                onChange={(e) => setMatchTime(e.target.value)}
+                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="time" className="mb-1 block text-sm text-slate-300">
-              比赛时间 *
-            </label>
-            <input
-              id="time"
-              name="time"
-              type="time"
-              required
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-slate-100"
-            />
+
+          {/* -- 报名截止时间 -- */}
+          <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+            <p className="mb-3 text-sm font-medium text-slate-200">
+              报名截止时间 *
+            </p>
+            <div className="space-y-3">
+              <input
+                type="date"
+                aria-label="截止日期"
+                value={deadlineDate}
+                max={matchDate || undefined}
+                onChange={(e) => setDeadlineDate(e.target.value)}
+                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+              />
+              <input
+                type="time"
+                aria-label="截止时间"
+                value={deadlineTime}
+                step={1800}
+                onChange={(e) => setDeadlineTime(e.target.value)}
+                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+              />
+            </div>
           </div>
         </div>
-        <div className="mt-4">
-          <label
-            htmlFor="registrationDeadline"
-            className="mb-1 block text-sm text-slate-300"
-          >
-            报名截止时间 *
-          </label>
-          <input
-            id="registrationDeadline"
-            name="registrationDeadline"
-            type="datetime-local"
-            required
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-slate-100"
-          />
-          <p className="mt-1 text-xs text-slate-400">
-            截止后将无法继续报名，并由管理员手动生成分组。
-          </p>
-        </div>
+        {timeError ? (
+          <p className="mt-2 text-sm text-rose-300">{timeError}</p>
+        ) : null}
       </section>
 
+      {/* ===== 赛制 ===== */}
       <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
         <h2 className="mb-4 text-sm font-semibold tracking-wide text-cyan-200">
           赛制
@@ -156,10 +216,10 @@ export default function CreateMatchForm() {
             <select
               id="format"
               name="format"
-              value={format}
-              onChange={(event) =>
-                setFormat(
-                  event.target.value as "group_only" | "group_then_knockout",
+              value={matchFormat}
+              onChange={(e) =>
+                setMatchFormat(
+                  e.target.value as "group_only" | "group_then_knockout",
                 )
               }
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-slate-100"
@@ -181,7 +241,7 @@ export default function CreateMatchForm() {
 
       <button
         disabled={pending}
-        className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-60"
+        className="w-full rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-60"
       >
         {pending ? "发布中..." : "发布比赛"}
       </button>

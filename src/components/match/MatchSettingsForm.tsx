@@ -21,10 +21,12 @@ export default function MatchSettingsForm({
 }: Props) {
   const action = updateMatchFormatAction.bind(null, matchId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const timezoneOffset = String(new Date().getTimezoneOffset());
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="csrfToken" defaultValue="" />
+      <input type="hidden" name="timezoneOffset" value={timezoneOffset} />
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label
@@ -57,7 +59,7 @@ export default function MatchSettingsForm({
             type="datetime-local"
             defaultValue={registrationDeadline}
             title="报名截止时间"
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
+            className="native-picker w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
           />
         </div>
       </div>

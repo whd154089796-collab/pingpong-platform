@@ -1,8 +1,6 @@
 'use server'
 
 import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
@@ -60,6 +58,129 @@ function hasImageMagicBytes(type: string, buffer: Buffer) {
   return false
 }
 
+let cloudinaryConfigured = false
+let cloudinaryClientPromise: Promise<(typeof import('cloudinary'))['v2']> | null = null
+
+function getCloudinaryCloudName() {
+  return process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+}
+
+async function getCloudinaryClient() {
+  if (cloudinaryClientPromise) {
+    return cloudinaryClientPromise
+  }
+
+  cloudinaryClientPromise = import('cloudinary').then(({ v2 }) => {
+    const cloudName = getCloudinaryCloudName()
+    const apiKey = process.env.CLOUDINARY_API_KEY
+    const apiSecret = process.env.CLOUDINARY_API_SECRET
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new Error('Cloudinary 环境变量缺失。请配置 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME、CLOUDINARY_API_KEY、CLOUDINARY_API_SECRET。')
+    }
+
+    if (!cloudinaryConfigured) {
+      v2.config({
+        cloud_name: cloudName,
+        api_key: apiKey,
+        api_secret: apiSecret,
+        secure: true,
+      })
+      cloudinaryConfigured = true
+    }
+
+    return v2
+  })
+
+  return cloudinaryClientPromise
+}
+
+function extractCloudinaryPublicId(url: string, cloudName: string) {
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname !== 'res.cloudinary.com') {
+      return null
+    }
+
+    const pathSegments = decodeURIComponent(parsed.pathname).split('/').filter(Boolean)
+    if (pathSegments[0] !== cloudName) {
+      return null
+    }
+
+    const uploadIndex = pathSegments.findIndex((segment) => segment === 'upload')
+    if (uploadIndex === -1) {
+      return null
+    }
+
+    const afterUpload = pathSegments.slice(uploadIndex + 1)
+    if (afterUpload.length === 0) {
+      return null
+    }
+
+    const versionIndex = afterUpload.findIndex((segment) => /^v\d+$/.test(segment))
+    const publicIdSegments = versionIndex >= 0 ? afterUpload.slice(versionIndex + 1) : afterUpload
+
+    if (publicIdSegments.length === 0) {
+      return null
+    }
+
+    const last = publicIdSegments[publicIdSegments.length - 1]
+    publicIdSegments[publicIdSegments.length - 1] = last.replace(/\.[^.]+$/, '')
+
+    return publicIdSegments.join('/')
+  } catch {
+    return null
+  }
+}
+
+async function deleteCloudinaryAssetByUrl(url: string | null | undefined) {
+  if (!url) {
+    return
+  }
+
+  const cloudName = getCloudinaryCloudName()
+  if (!cloudName) {
+    return
+  }
+
+  const publicId = extractCloudinaryPublicId(url, cloudName)
+  if (!publicId) {
+    return
+  }
+
+  const cloudinary = await getCloudinaryClient()
+  await cloudinary.uploader.destroy(publicId, {
+    resource_type: 'image',
+  })
+}
+
+async function uploadAvatarToCloudinary(fileBuffer: Buffer, userId: string) {
+  const cloudinary = await getCloudinaryClient()
+
+  const publicId = `${userId}-${randomUUID()}`
+
+  return new Promise<string>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'avatars',
+        public_id: publicId,
+        overwrite: false,
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error || !result?.secure_url) {
+          reject(error ?? new Error('Cloudinary 未返回 secure_url'))
+          return
+        }
+
+        resolve(result.secure_url)
+      },
+    )
+
+    stream.end(fileBuffer)
+  })
+}
+
 export async function updateProfileAction(_: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const csrfError = await validateCsrfToken(formData)
   if (csrfError) {
@@ -73,7 +194,6 @@ export async function updateProfileAction(_: ProfileFormState, formData: FormDat
 
   const nickname = String(formData.get('nickname') ?? '').trim()
   const bio = String(formData.get('bio') ?? '').trim()
-  const removeAvatar = String(formData.get('removeAvatar') ?? '') === 'on'
   const avatarFile = formData.get('avatar')
 
   if (!nickname) {
@@ -89,10 +209,8 @@ export async function updateProfileAction(_: ProfileFormState, formData: FormDat
   }
 
   let nextAvatarUrl: string | null | undefined
-
-  if (removeAvatar) {
-    nextAvatarUrl = null
-  }
+  const previousAvatarUrl = currentUser.avatarUrl
+  let uploadedNewAvatar = false
 
   if (avatarFile instanceof File && avatarFile.size > 0) {
     const extension = extensionFromMimeType(avatarFile.type)
@@ -108,12 +226,13 @@ export async function updateProfileAction(_: ProfileFormState, formData: FormDat
       return { error: '头像文件内容与格式不匹配，请重新选择图片。' }
     }
 
-    const filename = `${currentUser.id}-${randomUUID()}${extension}`
-    const avatarFolder = join(process.cwd(), 'public', 'uploads', 'avatars')
-    await mkdir(avatarFolder, { recursive: true })
-
-    await writeFile(join(avatarFolder, filename), buffer)
-    nextAvatarUrl = `/uploads/avatars/${filename}`
+    try {
+      nextAvatarUrl = await uploadAvatarToCloudinary(buffer, currentUser.id)
+      uploadedNewAvatar = true
+    } catch (error) {
+      console.error('头像上传到 Cloudinary 失败', error)
+      return { error: '头像上传失败，请稍后重试。' }
+    }
   }
 
   await prisma.user.update({
@@ -125,8 +244,22 @@ export async function updateProfileAction(_: ProfileFormState, formData: FormDat
     },
   })
 
+  const avatarChanged = typeof nextAvatarUrl !== 'undefined' && nextAvatarUrl !== previousAvatarUrl
+  if (avatarChanged && uploadedNewAvatar) {
+    try {
+      await deleteCloudinaryAssetByUrl(previousAvatarUrl)
+    } catch (error) {
+      console.error('清理 Cloudinary 旧头像失败', error)
+    }
+  }
+
   revalidatePath('/profile')
+  revalidatePath('/profile/edit')
   revalidatePath(`/users/${currentUser.id}`)
 
   return { success: '资料已更新。' }
+}
+
+export async function updateProfileActionForm(state: ProfileFormState, formData: FormData) {
+  return updateProfileAction(state, formData)
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   type ProfileFormState,
-  updateProfileAction,
+  updateProfileActionForm,
 } from "@/app/profile/actions";
 
 type Props = {
@@ -15,13 +16,23 @@ type Props = {
 const initialState: ProfileFormState = {};
 
 export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(
-    updateProfileAction,
+    updateProfileActionForm,
     initialState,
   );
 
+  useEffect(() => {
+    if (!state.success) return;
+    router.refresh();
+  }, [state.success, router]);
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      encType="multipart/form-data"
+      className="space-y-4"
+    >
       <input type="hidden" name="csrfToken" defaultValue="" />
       <div>
         <label htmlFor="nickname" className="mb-1 block text-sm text-slate-300">
@@ -60,14 +71,6 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
             alt="当前头像"
             className="h-16 w-16 rounded-full object-cover ring-1 ring-cyan-400/30"
           />
-          <label className="inline-flex items-center gap-2 text-xs text-slate-300">
-            <input
-              type="checkbox"
-              name="removeAvatar"
-              className="rounded border-slate-500 bg-slate-800"
-            />
-            删除当前头像
-          </label>
         </div>
       )}
 
@@ -89,7 +92,7 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
       )}
       <button
         disabled={pending}
-        className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        className="rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
       >
         {pending ? "保存中..." : "保存资料"}
       </button>

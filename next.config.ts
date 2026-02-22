@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
       "object-src 'none'",
       "script-src 'self'",
       "style-src 'self'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://res.cloudinary.com",
       "font-src 'self' data:",
       "connect-src 'self' https://api.resend.com",
       "frame-src 'none'",

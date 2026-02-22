@@ -27,8 +27,29 @@ export type GroupingAdminState = {
   previewJson?: string
 }
 
-function parseDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00`)
+function parseDateTime(date: string, time: string, timezoneOffsetMinutes = 0) {
+  const [year, month, day] = date.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute)
+  ) {
+    return new Date(NaN)
+  }
+
+  const utcMillis = Date.UTC(year, month - 1, day, hour, minute, 0) + timezoneOffsetMinutes * 60 * 1000
+  return new Date(utcMillis)
+}
+
+function parseLocalDateTimeInput(input: string, timezoneOffsetMinutes = 0) {
+  const [date, timeWithSeconds] = input.split('T')
+  const time = (timeWithSeconds ?? '').slice(0, 5)
+  if (!date || !time) return new Date(NaN)
+  return parseDateTime(date, time, timezoneOffsetMinutes)
 }
 
 function parseBestOf(raw: FormDataEntryValue | null) {
@@ -402,15 +423,17 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
   const date = String(formData.get('date') ?? '')
   const time = String(formData.get('time') ?? '')
   const registrationDeadline = String(formData.get('registrationDeadline') ?? '')
+  const timezoneOffsetRaw = Number(formData.get('timezoneOffset') ?? 0)
   const type = String(formData.get('type') ?? 'single') as MatchType
   const format = String(formData.get('format') ?? 'group_only') as CompetitionFormat
+  const timezoneOffset = Number.isFinite(timezoneOffsetRaw) ? timezoneOffsetRaw : 0
 
   if (!title || !location || !date || !time || !registrationDeadline) {
     return { error: '请完整填写必填项。' }
   }
 
-  const matchDate = parseDateTime(date, time)
-  const deadline = new Date(registrationDeadline)
+  const matchDate = parseDateTime(date, time, timezoneOffset)
+  const deadline = parseLocalDateTimeInput(registrationDeadline, timezoneOffset)
 
   if (Number.isNaN(matchDate.getTime()) || Number.isNaN(deadline.getTime())) {
     return { error: '时间格式无效。' }
@@ -494,8 +517,10 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
 
   const format = String(formData.get('format') ?? match.format) as CompetitionFormat
   const deadlineInput = String(formData.get('registrationDeadline') ?? '')
+  const timezoneOffsetRaw = Number(formData.get('timezoneOffset') ?? 0)
+  const timezoneOffset = Number.isFinite(timezoneOffsetRaw) ? timezoneOffsetRaw : 0
 
-  const nextDeadline = deadlineInput ? new Date(deadlineInput) : match.registrationDeadline
+  const nextDeadline = deadlineInput ? parseLocalDateTimeInput(deadlineInput, timezoneOffset) : match.registrationDeadline
   if (Number.isNaN(nextDeadline.getTime())) return { error: '截止时间格式错误。' }
   if (nextDeadline >= match.dateTime) return { error: '截止时间必须早于比赛开始时间。' }
 
@@ -569,13 +594,15 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
   const type = String(formData.get('type') ?? 'single') as MatchType
   const format = String(formData.get('format') ?? match.format) as CompetitionFormat
   const deadlineInput = String(formData.get('registrationDeadline') ?? '')
+  const timezoneOffsetRaw = Number(formData.get('timezoneOffset') ?? 0)
+  const timezoneOffset = Number.isFinite(timezoneOffsetRaw) ? timezoneOffsetRaw : 0
 
   if (!title || !location || !date || !time) return { error: '请完整填写必填项。' }
 
-  const matchDate = parseDateTime(date, time)
+  const matchDate = parseDateTime(date, time, timezoneOffset)
   if (Number.isNaN(matchDate.getTime())) return { error: '比赛时间格式无效。' }
 
-  const deadline = deadlineInput ? new Date(deadlineInput) : match.registrationDeadline
+  const deadline = deadlineInput ? parseLocalDateTimeInput(deadlineInput, timezoneOffset) : match.registrationDeadline
   if (Number.isNaN(deadline.getTime())) return { error: '截止时间格式错误。' }
   if (deadline >= matchDate) return { error: '截止时间必须早于比赛开始时间。' }
 

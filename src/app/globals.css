@@ -23,3 +23,34 @@ body {
     linear-gradient(180deg, #020617 0%, #0b1120 100%);
   color: #f1f5f9;
 }
+
+.native-picker {
+  color-scheme: dark;
+}
+
+.native-picker::-webkit-calendar-picker-indicator,
+.native-picker::-webkit-time-picker-indicator {
+  filter: invert(1) brightness(2) contrast(1.2) !important;
+  opacity: 0.95;
+  cursor: pointer;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2) contrast(1.2) !important;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+
+input[type="date"]::-moz-focus-inner,
+input[type="time"]::-moz-focus-inner,
+input[type="datetime-local"]::-moz-focus-inner {
+  border: 0;
+}
