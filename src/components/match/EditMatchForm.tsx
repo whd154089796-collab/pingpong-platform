@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { type MatchFormState, updateMatchAction } from "@/app/matchs/actions";
+import { useEffect, useState, useTransition } from "react";
+import { updateMatchAction } from "@/app/matchs/actions";
 
 type Props = {
   matchId: string;
@@ -9,115 +9,157 @@ type Props = {
     title: string;
     description: string;
     location: string;
-    date: string; // yyyy-MM-dd
-    time: string; // HH:mm
+    dateTimeIso: string;
     type: "single" | "double" | "team";
     format: "group_only" | "group_then_knockout";
-    registrationDeadline: string; // yyyy-MM-ddTHH:mm or ISO
+    registrationDeadlineIso: string;
   };
 };
 
-const initialState: MatchFormState = {};
+// 简单的日期时间解析辅助函数
+const parseIsoToLocal = (isoString: string) => {
+  if (!isoString) return { date: "", time: "" };
+  const dateObj = new Date(isoString);
+  if (isNaN(dateObj.getTime())) return { date: "", time: "" };
 
-function parseInitialDeadline(value: string) {
-  if (!value) return { date: "", time: "" };
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return { date: "", time: "" };
-  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
+  const time = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
   return { date, time };
-}
+};
 
 export default function EditMatchForm({ matchId, initial }: Props) {
-  const action = updateMatchAction.bind(null, matchId);
-  const [state, formAction, pending] = useActionState(action, initialState);
-  const timezoneOffset = String(new Date().getTimezoneOffset());
+  const [isPending, startTransition] = useTransition();
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const [matchDate, setMatchDate] = useState(initial.date);
-  const [matchTime, setMatchTime] = useState(initial.time);
+  // 初始化状态
+  const initStart = parseIsoToLocal(initial.dateTimeIso);
+  const initEnd = parseIsoToLocal(initial.registrationDeadlineIso);
 
-  const dl = parseInitialDeadline(initial.registrationDeadline);
-  const [deadlineDate, setDeadlineDate] = useState(dl.date);
-  const [deadlineTime, setDeadlineTime] = useState(dl.time || initial.time);
+  // 表单状态管理
+  const [formDataState, setFormDataState] = useState({
+    title: initial.title,
+    description: initial.description,
+    location: initial.location,
+    type: initial.type,
+    format: initial.format,
+    startDate: initStart.date,
+    startTime: initStart.time,
+    endDate: initEnd.date,
+    endTime: initEnd.time || initStart.time,
+  });
 
-  function toDateTime(date: string, time: string) {
-    if (!date || !time) return null;
-    return new Date(`${date}T${time}`);
-  }
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    setFormDataState((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
 
-  const matchDateTime = toDateTime(matchDate, matchTime);
-  const deadlineDateTime = toDateTime(deadlineDate, deadlineTime);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
 
-  const isTimeValid =
-    matchDate !== "" &&
-    deadlineDate !== "" &&
-    matchDateTime !== null &&
-    deadlineDateTime !== null &&
-    deadlineDateTime < matchDateTime;
+    // 1. 客户端校验
+    const startDateTimeStr = `${formDataState.startDate}T${formDataState.startTime}`;
+    let endDateTimeStr = "";
+    if (formDataState.endDate && formDataState.endTime) {
+      endDateTimeStr = `${formDataState.endDate}T${formDataState.endTime}`;
+    }
 
-  const timeError =
-    matchDate &&
-    deadlineDate &&
-    matchDateTime &&
-    deadlineDateTime &&
-    !isTimeValid
-      ? "报名截止时间必须早于比赛开始时间。"
-      : null;
+    const start = new Date(startDateTimeStr);
+    const end = endDateTimeStr ? new Date(endDateTimeStr) : null;
 
-  const registrationDeadlineValue = deadlineDateTime
-    ? `${deadlineDate}T${deadlineTime}`
-    : "";
+    if (isNaN(start.getTime())) {
+      setErrorMessage("比赛开始时间无效");
+      return;
+    }
+
+    if (end && isNaN(end.getTime())) {
+      setErrorMessage("报名截止时间无效");
+      return;
+    }
+
+    if (end && end >= start) {
+      setErrorMessage("报名截止时间必须早于比赛开始时间");
+      return;
+    }
+
+    // 2. 准备提交的数据
+    const formData = new FormData();
+    formData.append("title", formDataState.title);
+    formData.append("description", formDataState.description);
+    formData.append("location", formDataState.location);
+    formData.append("type", formDataState.type);
+    formData.append("format", formDataState.format);
+    // 组合完整的 ISO 字符串或者本地时间字符串传给后端
+    formData.append("matchDateTime", startDateTimeStr);
+    formData.append("registrationDeadline", endDateTimeStr);
+
+    // 传递时区偏移量（分钟），用于服务端校正
+    formData.append("timezoneOffset", String(new Date().getTimezoneOffset()));
+
+    // 注入 CSRF Token (如果有这个机制的话，保持原样)
+    // 假设页面中有隐藏 input 或者我们在 action 中验证
+    // 这里我们手动添加一个空值，或者让服务端自行处理 CSRF
+    formData.append("csrfToken", "");
+
+    // 3. 执行 Server Action
+    startTransition(async () => {
+      try {
+        const result = await updateMatchAction(matchId, formData);
+
+        if (result.success) {
+          setSuccessMessage("保存成功，正在跳转...");
+          // 强制刷新跳转，避免 Next.js 路由缓存导致数据显示旧值
+          window.location.href = `/matchs/${matchId}?updated=${Date.now()}`;
+        } else {
+          setErrorMessage(result.error || "保存失败");
+        }
+      } catch (error) {
+        console.error(error);
+        setErrorMessage("请求发生错误，请重试");
+      }
+    });
+  };
 
   return (
-    <form action={formAction} className="space-y-6">
-      <input type="hidden" name="csrfToken" defaultValue="" />
-      <input type="hidden" name="date" value={matchDate} />
-      <input type="hidden" name="time" value={matchTime} />
-      <input type="hidden" name="timezoneOffset" value={timezoneOffset} />
-      <input
-        type="hidden"
-        name="registrationDeadline"
-        value={registrationDeadlineValue}
-      />
-
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label
-          htmlFor="edit-title"
-          className="mb-1 block text-sm text-slate-300"
-        >
-          比赛名称 *
-        </label>
+        <label className="mb-1 block text-sm text-slate-300">比赛名称 *</label>
         <input
-          id="edit-title"
           name="title"
-          defaultValue={initial.title}
+          value={formDataState.title}
+          onChange={handleChange}
           required
-          title="比赛名称"
           className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
         />
       </div>
+
       <div>
-        <label
-          htmlFor="edit-description"
-          className="mb-1 block text-sm text-slate-300"
-        >
-          比赛描述
-        </label>
+        <label className="mb-1 block text-sm text-slate-300">比赛描述</label>
         <textarea
-          id="edit-description"
           name="description"
           rows={4}
-          defaultValue={initial.description}
+          value={formDataState.description}
+          onChange={handleChange}
           className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
         />
       </div>
 
-      {/* ===== 时间设置 ===== */}
+      {/* 时间设置区域 */}
       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
         <h2 className="mb-4 text-sm font-semibold tracking-wide text-cyan-200">
           时间设置
         </h2>
         <div className="grid gap-5 lg:grid-cols-2">
+          {/* 开始时间 */}
           <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
             <p className="mb-3 text-sm font-medium text-slate-200">
               比赛开始时间 *
@@ -125,22 +167,25 @@ export default function EditMatchForm({ matchId, initial }: Props) {
             <div className="space-y-3">
               <input
                 type="date"
-                aria-label="比赛日期"
-                value={matchDate}
-                onChange={(e) => setMatchDate(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                name="startDate"
+                value={formDataState.startDate}
+                onChange={handleChange}
+                required
+                className="h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
               <input
                 type="time"
-                aria-label="比赛时间"
-                value={matchTime}
-                step={1800}
-                onChange={(e) => setMatchTime(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                name="startTime"
+                value={formDataState.startTime}
+                onChange={handleChange}
+                required
+                step={1800} // 30分钟步长
+                className="h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
             </div>
           </div>
 
+          {/* 截止时间 */}
           <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
             <p className="mb-3 text-sm font-medium text-slate-200">
               报名截止时间 *
@@ -148,58 +193,45 @@ export default function EditMatchForm({ matchId, initial }: Props) {
             <div className="space-y-3">
               <input
                 type="date"
-                aria-label="截止日期"
-                value={deadlineDate}
-                max={matchDate || undefined}
-                onChange={(e) => setDeadlineDate(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                name="endDate"
+                value={formDataState.endDate}
+                onChange={handleChange}
+                max={formDataState.startDate} // 简单的约束
+                required
+                className="h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
               <input
                 type="time"
-                aria-label="截止时间"
-                value={deadlineTime}
+                name="endTime"
+                value={formDataState.endTime}
+                onChange={handleChange}
+                required
                 step={1800}
-                onChange={(e) => setDeadlineTime(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                className="h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
             </div>
           </div>
         </div>
-
-        {timeError ? (
-          <p className="mt-2 text-sm text-rose-300">{timeError}</p>
-        ) : null}
       </div>
 
       <div>
-        <label
-          htmlFor="edit-location"
-          className="mb-1 block text-sm text-slate-300"
-        >
-          地点 *
-        </label>
+        <label className="mb-1 block text-sm text-slate-300">地点 *</label>
         <input
-          id="edit-location"
           name="location"
-          defaultValue={initial.location}
+          value={formDataState.location}
+          onChange={handleChange}
           required
-          title="比赛地点"
           className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
         />
       </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label
-            htmlFor="edit-type"
-            className="mb-1 block text-sm text-slate-300"
-          >
-            比赛类型
-          </label>
+          <label className="mb-1 block text-sm text-slate-300">比赛类型</label>
           <select
-            id="edit-type"
             name="type"
-            defaultValue={initial.type}
-            title="比赛类型"
+            value={formDataState.type}
+            onChange={handleChange}
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
           >
             <option value="single">单打</option>
@@ -208,17 +240,11 @@ export default function EditMatchForm({ matchId, initial }: Props) {
           </select>
         </div>
         <div>
-          <label
-            htmlFor="edit-format"
-            className="mb-1 block text-sm text-slate-300"
-          >
-            赛制
-          </label>
+          <label className="mb-1 block text-sm text-slate-300">赛制</label>
           <select
-            id="edit-format"
             name="format"
-            defaultValue={initial.format}
-            title="比赛赛制"
+            value={formDataState.format}
+            onChange={handleChange}
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
           >
             <option value="group_only">分组比赛</option>
@@ -226,16 +252,25 @@ export default function EditMatchForm({ matchId, initial }: Props) {
           </select>
         </div>
       </div>
-      {state.error && <p className="text-sm text-rose-300">{state.error}</p>}
-      {state.success && (
-        <p className="text-sm text-emerald-300">{state.success}</p>
+
+      {/* 错误和成功提示 */}
+      {errorMessage && (
+        <div className="rounded-md bg-rose-500/10 p-3 text-sm text-rose-300 border border-rose-500/20">
+          {errorMessage}
+        </div>
+      )}
+      {successMessage && (
+        <div className="rounded-md bg-emerald-500/10 p-3 text-sm text-emerald-300 border border-emerald-500/20">
+          {successMessage}
+        </div>
       )}
 
       <button
-        disabled={pending || !isTimeValid}
-        className="w-full rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-60"
+        type="submit"
+        disabled={isPending}
+        className="w-full rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-60 hover:opacity-90 transition-opacity"
       >
-        {pending ? "保存中..." : "保存比赛修改"}
+        {isPending ? "正在保存..." : "保存修改"}
       </button>
     </form>
   );

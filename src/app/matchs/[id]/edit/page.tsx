@@ -21,14 +21,6 @@ export default async function EditMatchPage({
   if (!currentUser) redirect("/auth");
   if (currentUser.id !== match.createdBy) redirect(`/matchs/${id}`);
 
-  const localDeadline = new Date(
-    match.registrationDeadline.getTime() -
-      match.registrationDeadline.getTimezoneOffset() * 60000,
-  );
-  const localMatchDateTime = new Date(
-    match.dateTime.getTime() - match.dateTime.getTimezoneOffset() * 60000,
-  );
-
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <Link
@@ -47,11 +39,10 @@ export default async function EditMatchPage({
             title: match.title,
             description: match.description ?? "",
             location: match.location ?? "",
-            date: localMatchDateTime.toISOString().slice(0, 10),
-            time: localMatchDateTime.toISOString().slice(11, 16),
+            dateTimeIso: match.dateTime.toISOString(),
             type: match.type,
             format: match.format,
-            registrationDeadline: localDeadline.toISOString().slice(0, 16),
+            registrationDeadlineIso: match.registrationDeadline.toISOString(),
           }}
         />
       </div>

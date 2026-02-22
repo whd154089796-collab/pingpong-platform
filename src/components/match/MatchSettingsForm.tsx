@@ -59,7 +59,7 @@ export default function MatchSettingsForm({
             type="datetime-local"
             defaultValue={registrationDeadline}
             title="报名截止时间"
-            className="native-picker w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
+            className="native-picker native-picker-date w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
           />
         </div>
       </div>

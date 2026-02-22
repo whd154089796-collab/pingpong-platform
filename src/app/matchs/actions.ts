@@ -48,6 +48,7 @@ function parseDateTime(date: string, time: string, timezoneOffsetMinutes = 0) {
 function parseLocalDateTimeInput(input: string, timezoneOffsetMinutes = 0) {
   const [date, timeWithSeconds] = input.split('T')
   const time = (timeWithSeconds ?? '').slice(0, 5)
+
   if (!date || !time) return new Date(NaN)
   return parseDateTime(date, time, timezoneOffsetMinutes)
 }
@@ -420,19 +421,25 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
   const title = String(formData.get('title') ?? '').trim()
   const description = String(formData.get('description') ?? '').trim()
   const location = String(formData.get('location') ?? '').trim()
+  const matchDateTimeInput = String(formData.get('matchDateTime') ?? '')
   const date = String(formData.get('date') ?? '')
   const time = String(formData.get('time') ?? '')
-  const registrationDeadline = String(formData.get('registrationDeadline') ?? '')
+  const deadlineDate = String(formData.get('deadlineDate') ?? '')
+  const deadlineTime = String(formData.get('deadlineTime') ?? '')
+  const registrationDeadlineRaw = String(formData.get('registrationDeadline') ?? '')
+  const startDateTimeInput = matchDateTimeInput || (date && time ? `${date}T${time}` : '')
+  const registrationDeadline =
+    registrationDeadlineRaw || (deadlineDate && deadlineTime ? `${deadlineDate}T${deadlineTime}` : '')
   const timezoneOffsetRaw = Number(formData.get('timezoneOffset') ?? 0)
   const type = String(formData.get('type') ?? 'single') as MatchType
   const format = String(formData.get('format') ?? 'group_only') as CompetitionFormat
   const timezoneOffset = Number.isFinite(timezoneOffsetRaw) ? timezoneOffsetRaw : 0
 
-  if (!title || !location || !date || !time || !registrationDeadline) {
+  if (!title || !location || !startDateTimeInput || !registrationDeadline) {
     return { error: '请完整填写必填项。' }
   }
 
-  const matchDate = parseDateTime(date, time, timezoneOffset)
+  const matchDate = parseLocalDateTimeInput(startDateTimeInput, timezoneOffset)
   const deadline = parseLocalDateTimeInput(registrationDeadline, timezoneOffset)
 
   if (Number.isNaN(matchDate.getTime()) || Number.isNaN(deadline.getTime())) {
@@ -574,61 +581,69 @@ export async function unregisterMatchAction(matchId: string, _: MatchFormState, 
   return { success: '已退出报名。' }
 }
 
-export async function updateMatchAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
-  const csrfError = await validateCsrfToken(formData)
-  if (csrfError) return { error: csrfError }
+export async function updateMatchAction(matchId: string, formData: FormData) {
+  try {
+    const csrfError = await validateCsrfToken(formData)
+    if (csrfError) return { error: csrfError, success: false }
 
-  const currentUser = await getCurrentUser()
-  if (!currentUser) return { error: '请先登录。' }
+    const currentUser = await getCurrentUser()
+    if (!currentUser) return { error: '请先登录。', success: false }
 
-  const match = await prisma.match.findUnique({ where: { id: matchId } })
-  if (!match) return { error: '比赛不存在。' }
-  if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改比赛。' }
-  if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可修改。' }
+    const match = await prisma.match.findUnique({ where: { id: matchId } })
+    if (!match) return { error: '比赛不存在。', success: false }
+    if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改比赛。', success: false }
+    if (new Date() >= match.registrationDeadline) return { error: '报名截止后不可修改。', success: false }
 
-  const title = String(formData.get('title') ?? '').trim()
-  const description = String(formData.get('description') ?? '').trim()
-  const location = String(formData.get('location') ?? '').trim()
-  const date = String(formData.get('date') ?? '')
-  const time = String(formData.get('time') ?? '')
-  const type = String(formData.get('type') ?? 'single') as MatchType
-  const format = String(formData.get('format') ?? match.format) as CompetitionFormat
-  const deadlineInput = String(formData.get('registrationDeadline') ?? '')
-  const timezoneOffsetRaw = Number(formData.get('timezoneOffset') ?? 0)
-  const timezoneOffset = Number.isFinite(timezoneOffsetRaw) ? timezoneOffsetRaw : 0
+    const title = String(formData.get('title') ?? '').trim()
+    const description = String(formData.get('description') ?? '').trim()
+    const location = String(formData.get('location') ?? '').trim()
+    const matchDateTimeInput = String(formData.get('matchDateTime') ?? '')
+    const date = String(formData.get('date') ?? '')
+    const time = String(formData.get('time') ?? '')
+    const type = String(formData.get('type') ?? 'single') as MatchType
+    const format = String(formData.get('format') ?? match.format) as CompetitionFormat
+    const deadlineInput = String(formData.get('registrationDeadline') ?? '')
+    const startDateTimeInput = matchDateTimeInput || (date && time ? `${date}T${time}` : '')
+    const timezoneOffsetRaw = Number(formData.get('timezoneOffset') ?? 0)
+    const timezoneOffset = Number.isFinite(timezoneOffsetRaw) ? timezoneOffsetRaw : 0
 
-  if (!title || !location || !date || !time) return { error: '请完整填写必填项。' }
+    if (!title || !location || !startDateTimeInput) return { error: '请完整填写必填项。', success: false }
 
-  const matchDate = parseDateTime(date, time, timezoneOffset)
-  if (Number.isNaN(matchDate.getTime())) return { error: '比赛时间格式无效。' }
+    const matchDate = parseLocalDateTimeInput(startDateTimeInput, timezoneOffset)
+    if (Number.isNaN(matchDate.getTime())) return { error: '比赛时间格式无效。', success: false }
 
-  const deadline = deadlineInput ? parseLocalDateTimeInput(deadlineInput, timezoneOffset) : match.registrationDeadline
-  if (Number.isNaN(deadline.getTime())) return { error: '截止时间格式错误。' }
-  if (deadline >= matchDate) return { error: '截止时间必须早于比赛开始时间。' }
+    const deadline = deadlineInput ? parseLocalDateTimeInput(deadlineInput, timezoneOffset) : match.registrationDeadline
+    if (Number.isNaN(deadline.getTime())) return { error: '截止时间格式错误。', success: false }
+    if (deadline >= matchDate) return { error: '截止时间必须早于比赛开始时间。', success: false }
 
-  await prisma.match.update({
-    where: { id: matchId },
-    data: {
-      title,
-      description: description || null,
-      location,
-      dateTime: matchDate,
-      type,
-      format,
-      registrationDeadline: deadline,
-      groupingGeneratedAt: null,
-      status: MatchStatus.registration,
-      rule: {
-        note: format === 'group_only' ? '分组循环赛' : '先分组后淘汰赛',
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        title,
+        description: description || null,
+        location,
+        dateTime: matchDate,
+        type,
+        format,
+        registrationDeadline: deadline,
+        groupingGeneratedAt: null,
+        status: MatchStatus.registration,
+        rule: {
+          note: format === 'group_only' ? '分组循环赛' : '先分组后淘汰赛',
+        },
       },
-    },
-  })
+    })
 
-  await prisma.matchGrouping.deleteMany({ where: { matchId } })
+    // Remove groupings if format changed or just to be safe as per previous logic
+    await prisma.matchGrouping.deleteMany({ where: { matchId } })
 
-  revalidatePath('/matchs')
-  revalidatePath(`/matchs/${matchId}`)
-  redirect(`/matchs/${matchId}`)
+    // We do NOT revalidatePath here to avoid server-side hanging.
+    // The client will force a location change.
+    return { success: true }
+  } catch (error) {
+    console.error('Update Match Error:', error)
+    return { error: '更新失败，系统错误。', success: false }
+  }
 }
 
 export async function previewGroupingAction(matchId: string, _: GroupingAdminState, formData: FormData): Promise<GroupingAdminState> {

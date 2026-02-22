@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { type MatchFormState, createMatchAction } from "@/app/matchs/actions";
 
 const initialState: MatchFormState = {};
@@ -19,7 +19,14 @@ export default function CreateMatchForm() {
   const [matchTime, setMatchTime] = useState("19:00");
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("17:00");
-  const timezoneOffset = String(new Date().getTimezoneOffset());
+  const timezoneOffsetInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!timezoneOffsetInputRef.current) return;
+    timezoneOffsetInputRef.current.value = String(
+      new Date().getTimezoneOffset(),
+    );
+  }, []);
 
   const formatTips = useMemo(() => {
     if (matchFormat === "group_then_knockout") {
@@ -53,14 +60,13 @@ export default function CreateMatchForm() {
       : null;
 
   // Hidden fields: keep the names the server action expects
+  const matchDateTimeValue = matchDateTime ? `${matchDate}T${matchTime}` : "";
   const registrationDeadlineValue = deadlineDateTime
     ? `${deadlineDate}T${deadlineTime}`
     : "";
 
   return (
     <form action={formAction} className="space-y-8">
-      <input type="hidden" name="csrfToken" defaultValue="" />
-
       {/* ===== 基础信息 ===== */}
       <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
         <h2 className="mb-4 text-sm font-semibold tracking-wide text-cyan-200">
@@ -122,9 +128,13 @@ export default function CreateMatchForm() {
         </h2>
 
         {/* Hidden fields for server */}
-        <input type="hidden" name="date" value={matchDate} />
-        <input type="hidden" name="time" value={matchTime} />
-        <input type="hidden" name="timezoneOffset" value={timezoneOffset} />
+        <input
+          ref={timezoneOffsetInputRef}
+          type="hidden"
+          name="timezoneOffset"
+          defaultValue=""
+        />
+        <input type="hidden" name="matchDateTime" value={matchDateTimeValue} />
         <input
           type="hidden"
           name="registrationDeadline"
@@ -140,18 +150,22 @@ export default function CreateMatchForm() {
             <div className="space-y-3">
               <input
                 type="date"
+                name="date"
                 aria-label="比赛日期"
+                required
                 value={matchDate}
                 onChange={(e) => setMatchDate(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                className="native-picker native-picker-date h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
               <input
                 type="time"
+                name="time"
                 aria-label="比赛时间"
+                required
                 value={matchTime}
                 step={1800}
                 onChange={(e) => setMatchTime(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                className="native-picker native-picker-time h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
             </div>
           </div>
@@ -164,19 +178,23 @@ export default function CreateMatchForm() {
             <div className="space-y-3">
               <input
                 type="date"
+                name="deadlineDate"
                 aria-label="截止日期"
+                required
                 value={deadlineDate}
                 max={matchDate || undefined}
                 onChange={(e) => setDeadlineDate(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                className="native-picker native-picker-date h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
               <input
                 type="time"
+                name="deadlineTime"
                 aria-label="截止时间"
+                required
                 value={deadlineTime}
                 step={1800}
                 onChange={(e) => setDeadlineTime(e.target.value)}
-                className="native-picker h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
+                className="native-picker native-picker-time h-10 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-sm text-slate-100 accent-cyan-500"
               />
             </div>
           </div>
@@ -240,7 +258,7 @@ export default function CreateMatchForm() {
       )}
 
       <button
-        disabled={pending}
+        disabled={pending || !!timeError}
         className="w-full rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 py-3 font-semibold text-white disabled:opacity-60"
       >
         {pending ? "发布中..." : "发布比赛"}
