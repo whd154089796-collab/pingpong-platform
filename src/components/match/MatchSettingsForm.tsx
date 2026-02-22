@@ -26,10 +26,17 @@ export default function MatchSettingsForm({
     <form action={formAction} className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm text-slate-300">赛制</label>
+          <label
+            htmlFor="settings-format"
+            className="mb-1 block text-sm text-slate-300"
+          >
+            赛制
+          </label>
           <select
+            id="settings-format"
             name="format"
             defaultValue={format}
+            title="比赛赛制"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
           >
             <option value="group_only">分组比赛</option>
@@ -37,13 +44,18 @@ export default function MatchSettingsForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-slate-300">
+          <label
+            htmlFor="settings-registration-deadline"
+            className="mb-1 block text-sm text-slate-300"
+          >
             报名截止时间
           </label>
           <input
+            id="settings-registration-deadline"
             name="registrationDeadline"
             type="datetime-local"
             defaultValue={registrationDeadline}
+            title="报名截止时间"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100"
           />
         </div>

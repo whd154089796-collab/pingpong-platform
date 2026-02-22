@@ -61,6 +61,7 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
               type="text"
               name="q"
               defaultValue={query}
+              title="搜索比赛名称"
               placeholder="搜索比赛名称"
               className="h-9 w-52 appearance-none rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-400 focus:bg-slate-900 focus:outline-none md:w-64"
             />

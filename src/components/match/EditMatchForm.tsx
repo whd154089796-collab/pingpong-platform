@@ -26,17 +26,30 @@ export default function EditMatchForm({ matchId, initial }: Props) {
   return (
     <form action={formAction} className="space-y-6">
       <div>
-        <label className="mb-1 block text-sm text-slate-300">比赛名称 *</label>
+        <label
+          htmlFor="edit-title"
+          className="mb-1 block text-sm text-slate-300"
+        >
+          比赛名称 *
+        </label>
         <input
+          id="edit-title"
           name="title"
           defaultValue={initial.title}
           required
+          title="比赛名称"
           className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm text-slate-300">比赛描述</label>
+        <label
+          htmlFor="edit-description"
+          className="mb-1 block text-sm text-slate-300"
+        >
+          比赛描述
+        </label>
         <textarea
+          id="edit-description"
           name="description"
           rows={4}
           defaultValue={initial.description}
@@ -45,41 +58,69 @@ export default function EditMatchForm({ matchId, initial }: Props) {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm text-slate-300">日期 *</label>
+          <label
+            htmlFor="edit-date"
+            className="mb-1 block text-sm text-slate-300"
+          >
+            日期 *
+          </label>
           <input
+            id="edit-date"
             name="date"
             type="date"
             defaultValue={initial.date}
             required
+            title="比赛日期"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-slate-300">时间 *</label>
+          <label
+            htmlFor="edit-time"
+            className="mb-1 block text-sm text-slate-300"
+          >
+            时间 *
+          </label>
           <input
+            id="edit-time"
             name="time"
             type="time"
             defaultValue={initial.time}
             required
+            title="比赛时间"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
           />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm text-slate-300">地点 *</label>
+        <label
+          htmlFor="edit-location"
+          className="mb-1 block text-sm text-slate-300"
+        >
+          地点 *
+        </label>
         <input
+          id="edit-location"
           name="location"
           defaultValue={initial.location}
           required
+          title="比赛地点"
           className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
         />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm text-slate-300">比赛类型</label>
+          <label
+            htmlFor="edit-type"
+            className="mb-1 block text-sm text-slate-300"
+          >
+            比赛类型
+          </label>
           <select
+            id="edit-type"
             name="type"
             defaultValue={initial.type}
+            title="比赛类型"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
           >
             <option value="single">单打</option>
@@ -88,10 +129,17 @@ export default function EditMatchForm({ matchId, initial }: Props) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-slate-300">赛制</label>
+          <label
+            htmlFor="edit-format"
+            className="mb-1 block text-sm text-slate-300"
+          >
+            赛制
+          </label>
           <select
+            id="edit-format"
             name="format"
             defaultValue={initial.format}
+            title="比赛赛制"
             className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
           >
             <option value="group_only">分组比赛</option>
@@ -100,13 +148,18 @@ export default function EditMatchForm({ matchId, initial }: Props) {
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-sm text-slate-300">
+        <label
+          htmlFor="edit-registration-deadline"
+          className="mb-1 block text-sm text-slate-300"
+        >
           报名截止时间
         </label>
         <input
+          id="edit-registration-deadline"
           name="registrationDeadline"
           type="datetime-local"
           defaultValue={initial.registrationDeadline}
+          title="报名截止时间"
           className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-slate-100"
         />
       </div>

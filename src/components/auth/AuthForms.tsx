@@ -99,12 +99,14 @@ export default function AuthForms() {
             <input
               name="email"
               type="email"
+              title="重发验证邮件邮箱"
               placeholder="邮箱"
               className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 focus:ring"
             />
             <input
               name="password"
               type="password"
+              title="重发验证邮件密码"
               placeholder="密码"
               className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 focus:ring"
             />
