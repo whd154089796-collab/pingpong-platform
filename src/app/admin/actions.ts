@@ -4,6 +4,7 @@ import { createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeE
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { validateCsrfToken } from '@/lib/csrf'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -308,6 +309,14 @@ export async function adminDashboardAction(
   prev: AdminDashboardState,
   formData: FormData,
 ): Promise<AdminDashboardState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) {
+    return {
+      ...INITIAL_ADMIN_DASHBOARD_STATE,
+      error: csrfError,
+    }
+  }
+
   const admin = await getAdminIdentity()
   if (!admin.ok) {
     return {

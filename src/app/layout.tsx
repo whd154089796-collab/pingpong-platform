@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Sidebar from "@/components/layout/Sidebar";
+import CsrfFormInjector from "@/components/security/CsrfFormInjector";
 import { getCurrentUser } from "@/lib/auth";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -26,6 +27,7 @@ export default async function RootLayout({
       <body
         className={`${inter.className} min-h-screen bg-slate-950 text-slate-100`}
       >
+        <CsrfFormInjector />
         <div className="flex min-h-screen">
           <Sidebar />
           <div className="flex min-h-screen flex-1 flex-col">

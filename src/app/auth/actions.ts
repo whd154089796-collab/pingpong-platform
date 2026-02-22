@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { SESSION_COOKIE_NAME } from '@/lib/auth'
+import { validateCsrfToken } from '@/lib/csrf'
 
 const EMAIL_VERIFY_TTL_MS = 1000 * 60 * 30
 
@@ -94,6 +95,9 @@ async function issueVerificationEmail(userId: string, email: string, nickname: s
 }
 
 export async function registerAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const nickname = String(formData.get('nickname') ?? '').trim()
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
@@ -136,6 +140,9 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
 }
 
 export async function loginAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
 
@@ -164,6 +171,9 @@ export async function loginAction(_: AuthFormState, formData: FormData): Promise
 }
 
 export async function resendVerifyEmailAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
 
@@ -216,7 +226,12 @@ export async function verifyEmailTokenAction(token: string) {
   return { success: '邮箱验证成功，请返回登录页登录。' }
 }
 
-export async function logoutAction() {
+export async function logoutAction(formData: FormData) {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) {
+    redirect('/auth')
+  }
+
   const cookieStore = await cookies()
   cookieStore.delete(SESSION_COOKIE_NAME)
   redirect('/auth')

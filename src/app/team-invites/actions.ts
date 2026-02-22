@@ -7,8 +7,11 @@ import {
   revokeDoublesInvite,
   sendDoublesInvite,
 } from '@/lib/doubles'
+import { validateCsrfToken } from '@/lib/csrf'
 
 export async function sendDoublesInviteAction(matchId: string, formData: FormData) {
+  if (await validateCsrfToken(formData)) return
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return
 
@@ -26,6 +29,8 @@ export async function sendDoublesInviteAction(matchId: string, formData: FormDat
 }
 
 export async function acceptDoublesInviteAction(formData: FormData) {
+  if (await validateCsrfToken(formData)) return
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return
 
@@ -44,6 +49,8 @@ export async function acceptDoublesInviteAction(formData: FormData) {
 }
 
 export async function revokeDoublesInviteAction(formData: FormData) {
+  if (await validateCsrfToken(formData)) return
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return
 

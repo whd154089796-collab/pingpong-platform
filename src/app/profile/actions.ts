@@ -6,6 +6,7 @@ import { extname, join } from 'node:path'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { validateCsrfToken } from '@/lib/csrf'
 
 export type ProfileFormState = {
   error?: string
@@ -23,6 +24,11 @@ function extensionFromMimeType(type: string) {
 }
 
 export async function updateProfileAction(_: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) {
+    return { error: csrfError }
+  }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return { error: '请先登录后再修改资料。' }

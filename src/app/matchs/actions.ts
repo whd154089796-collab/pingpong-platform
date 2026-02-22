@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { generateGroupingPayload } from '@/lib/tournament'
 import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
+import { validateCsrfToken } from '@/lib/csrf'
 import {
   registerDoublesTeamByUser,
   removeRegisteredDoublesTeamByMember,
@@ -389,6 +390,9 @@ async function applyConfirmedResult(tx: Prisma.TransactionClient, payload: {
 }
 
 export async function createMatchAction(_: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录后再发布比赛。' }
 
@@ -440,7 +444,10 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
   redirect(`/matchs/${created.id}`)
 }
 
-export async function registerMatchAction(matchId: string): Promise<MatchFormState> {
+export async function registerMatchAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录后报名。' }
 
@@ -474,6 +481,9 @@ export async function registerMatchAction(matchId: string): Promise<MatchFormSta
 }
 
 export async function updateMatchFormatAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -505,7 +515,10 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
   return { success: '赛制设置已更新。' }
 }
 
-export async function unregisterMatchAction(matchId: string): Promise<MatchFormState> {
+export async function unregisterMatchAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -537,6 +550,9 @@ export async function unregisterMatchAction(matchId: string): Promise<MatchFormS
 }
 
 export async function updateMatchAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -589,6 +605,9 @@ export async function updateMatchAction(matchId: string, _: MatchFormState, form
 }
 
 export async function previewGroupingAction(matchId: string, _: GroupingAdminState, formData: FormData): Promise<GroupingAdminState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
 
   const match = await prisma.match.findUnique({
@@ -632,6 +651,9 @@ export async function previewGroupingAction(matchId: string, _: GroupingAdminSta
 }
 
 export async function confirmGroupingAction(matchId: string, _: GroupingAdminState, formData: FormData): Promise<GroupingAdminState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   const previewJson = String(formData.get('previewJson') ?? '')
 
@@ -669,6 +691,9 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
 
 
 export async function submitGroupMatchResultAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -748,6 +773,9 @@ export async function submitGroupMatchResultAction(matchId: string, _: MatchForm
 }
 
 export async function submitKnockoutMatchResultAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -856,7 +884,10 @@ export async function submitKnockoutMatchResultAction(matchId: string, _: MatchF
   return { success: '已登记淘汰赛结果，等待对手或管理员确认。' }
 }
 
-export async function confirmMatchResultAction(matchId: string, resultId: string): Promise<MatchFormState> {
+export async function confirmMatchResultAction(matchId: string, resultId: string, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -904,11 +935,14 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
   return { success: '确认成功，结果已生效并更新积分。' }
 }
 
-export async function confirmMatchResultVoidAction(matchId: string, resultId: string): Promise<void> {
-  await confirmMatchResultAction(matchId, resultId)
+export async function confirmMatchResultVoidAction(matchId: string, resultId: string, formData: FormData): Promise<void> {
+  await confirmMatchResultAction(matchId, resultId, formData)
 }
 
-export async function removeRegistrationByManagerAction(matchId: string, userId: string): Promise<MatchFormState> {
+export async function removeRegistrationByManagerAction(matchId: string, userId: string, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -968,11 +1002,14 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
   return { success: '已移除该参赛者。' }
 }
 
-export async function removeRegistrationByManagerVoidAction(matchId: string, userId: string): Promise<void> {
-  await removeRegistrationByManagerAction(matchId, userId)
+export async function removeRegistrationByManagerVoidAction(matchId: string, userId: string, formData: FormData): Promise<void> {
+  await removeRegistrationByManagerAction(matchId, userId, formData)
 }
 
-export async function rejectMatchResultAction(matchId: string, resultId: string): Promise<MatchFormState> {
+export async function rejectMatchResultAction(matchId: string, resultId: string, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
@@ -993,8 +1030,8 @@ export async function rejectMatchResultAction(matchId: string, resultId: string)
   return { success: '已否决并移除该待确认赛果。' }
 }
 
-export async function rejectMatchResultVoidAction(matchId: string, resultId: string): Promise<void> {
-  await rejectMatchResultAction(matchId, resultId)
+export async function rejectMatchResultVoidAction(matchId: string, resultId: string, formData: FormData): Promise<void> {
+  await rejectMatchResultAction(matchId, resultId, formData)
 }
 
 
@@ -1004,6 +1041,9 @@ function parseTeamIds(raw: FormDataEntryValue | null) {
 }
 
 export async function reportMatchResultAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
