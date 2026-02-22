@@ -23,7 +23,7 @@ export default function CreateMatchForm() {
 
   return (
     <form action={formAction} className="space-y-8">
-      <input type="hidden" name="csrfToken" value="" />
+      <input type="hidden" name="csrfToken" defaultValue="" />
       <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
         <h2 className="mb-4 text-sm font-semibold tracking-wide text-cyan-200">
           基础信息

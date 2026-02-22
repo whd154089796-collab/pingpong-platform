@@ -441,7 +441,7 @@ export default async function MatchDetailPage({
                 method="get"
                 className="flex gap-2"
               >
-                <input type="hidden" name="csrfToken" value="" />
+                <input type="hidden" name="csrfToken" defaultValue="" />
                 <input
                   type="text"
                   name="inviteQ"
@@ -486,7 +486,11 @@ export default async function MatchDetailPage({
                               match.id,
                             )}
                           >
-                            <input type="hidden" name="csrfToken" value="" />
+                            <input
+                              type="hidden"
+                              name="csrfToken"
+                              defaultValue=""
+                            />
                             <input
                               type="hidden"
                               name="inviteeId"

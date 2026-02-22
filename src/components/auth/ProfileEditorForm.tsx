@@ -22,7 +22,7 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
 
   return (
     <form action={formAction} className="space-y-4">
-      <input type="hidden" name="csrfToken" value="" />
+      <input type="hidden" name="csrfToken" defaultValue="" />
       <div>
         <label htmlFor="nickname" className="mb-1 block text-sm text-slate-300">
           昵称

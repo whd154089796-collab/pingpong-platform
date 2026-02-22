@@ -15,6 +15,7 @@ function ensureTokenField(form: HTMLFormElement, token: string) {
     form.prepend(input);
   }
   input.value = token;
+  input.defaultValue = token;
 }
 
 export default function CsrfFormInjector() {

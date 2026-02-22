@@ -25,7 +25,7 @@ export default function EditMatchForm({ matchId, initial }: Props) {
 
   return (
     <form action={formAction} className="space-y-6">
-      <input type="hidden" name="csrfToken" value="" />
+      <input type="hidden" name="csrfToken" defaultValue="" />
       <div>
         <label
           htmlFor="edit-title"

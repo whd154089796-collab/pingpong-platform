@@ -330,7 +330,7 @@ export default function AdminResultEntryForm({
       action={formAction}
       className="space-y-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4"
     >
-      <input type="hidden" name="csrfToken" value="" />
+      <input type="hidden" name="csrfToken" defaultValue="" />
       <h3 className="text-sm font-semibold text-slate-100">管理员录入赛果</h3>
       <p className="text-xs text-slate-400">
         管理员录入后将进入待确认队列，需在下方“管理员待确认赛果”中确认或否决。

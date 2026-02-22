@@ -91,7 +91,11 @@ export default async function TeamInvitesPage() {
                         <div className="mt-3 flex flex-wrap gap-2">
                           {isReceived ? (
                             <form action={acceptDoublesInviteAction}>
-                              <input type="hidden" name="csrfToken" value="" />
+                              <input
+                                type="hidden"
+                                name="csrfToken"
+                                defaultValue=""
+                              />
                               <input
                                 type="hidden"
                                 name="inviteId"
@@ -108,7 +112,11 @@ export default async function TeamInvitesPage() {
 
                           {!isReceived ? (
                             <form action={revokeDoublesInviteAction}>
-                              <input type="hidden" name="csrfToken" value="" />
+                              <input
+                                type="hidden"
+                                name="csrfToken"
+                                defaultValue=""
+                              />
                               <input
                                 type="hidden"
                                 name="inviteId"

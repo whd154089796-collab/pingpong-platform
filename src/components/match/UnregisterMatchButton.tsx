@@ -18,7 +18,7 @@ export default function UnregisterMatchButton({ matchId }: Props) {
 
   return (
     <form action={formAction} className="space-y-2">
-      <input type="hidden" name="csrfToken" value="" />
+      <input type="hidden" name="csrfToken" defaultValue="" />
       <button
         disabled={pending}
         className="w-full rounded-lg border border-rose-400/50 py-3 font-semibold text-rose-200 hover:bg-rose-500/10 disabled:opacity-60"

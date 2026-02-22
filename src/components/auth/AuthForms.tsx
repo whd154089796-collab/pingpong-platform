@@ -47,7 +47,7 @@ export default function AuthForms() {
       {tab === "login" ? (
         <>
           <form action={loginFormAction} className="space-y-4">
-            <input type="hidden" name="csrfToken" value="" />
+            <input type="hidden" name="csrfToken" defaultValue="" />
             <div>
               <label
                 htmlFor="login-email"
@@ -94,7 +94,7 @@ export default function AuthForms() {
             action={resendFormAction}
             className="mt-4 space-y-3 rounded-xl border border-slate-700 bg-slate-800/60 p-4"
           >
-            <input type="hidden" name="csrfToken" value="" />
+            <input type="hidden" name="csrfToken" defaultValue="" />
             <p className="text-xs text-slate-300">
               未收到验证邮件？填写邮箱和密码后可重发验证链接。
             </p>
@@ -128,7 +128,7 @@ export default function AuthForms() {
         </>
       ) : (
         <form action={registerFormAction} className="space-y-4">
-          <input type="hidden" name="csrfToken" value="" />
+          <input type="hidden" name="csrfToken" defaultValue="" />
           <div>
             <label
               htmlFor="register-nickname"

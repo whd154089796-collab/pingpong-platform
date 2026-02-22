@@ -213,7 +213,7 @@ export default function GroupingAdminPanel({
             )}
 
             <form action={confirmFormAction}>
-              <input type="hidden" name="csrfToken" value="" />
+              <input type="hidden" name="csrfToken" defaultValue="" />
               <input
                 type="hidden"
                 name="previewJson"

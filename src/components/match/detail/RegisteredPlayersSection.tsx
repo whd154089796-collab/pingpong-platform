@@ -103,7 +103,7 @@ export default function RegisteredPlayersSection({
                         playerA.userId,
                       )}
                     >
-                      <input type="hidden" name="csrfToken" value="" />
+                      <input type="hidden" name="csrfToken" defaultValue="" />
                       <button
                         type="submit"
                         className="rounded-md border border-rose-500/40 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/10"
@@ -145,7 +145,7 @@ export default function RegisteredPlayersSection({
                       item.user.id,
                     )}
                   >
-                    <input type="hidden" name="csrfToken" value="" />
+                    <input type="hidden" name="csrfToken" defaultValue="" />
                     <button
                       type="submit"
                       className="rounded-md border border-rose-500/40 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/10"

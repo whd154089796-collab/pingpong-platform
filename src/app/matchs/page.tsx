@@ -57,7 +57,7 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
             method="get"
             className="flex items-center gap-2"
           >
-            <input type="hidden" name="csrfToken" value="" />
+            <input type="hidden" name="csrfToken" defaultValue="" />
             <input
               type="text"
               name="q"

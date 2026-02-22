@@ -81,7 +81,7 @@ export default async function ProfilePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-white">个人中心</h1>
         <form action={logoutAction}>
-          <input type="hidden" name="csrfToken" value="" />
+          <input type="hidden" name="csrfToken" defaultValue="" />
           <button className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
             <LogOut className="h-4 w-4" />
             退出登录
