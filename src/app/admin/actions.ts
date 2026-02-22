@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword } from '@/lib/password'
+import { shouldUseSecureCookies } from '@/lib/session'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -90,12 +91,20 @@ async function sendAdminReauthEmail(email: string, nickname: string, code: strin
 
   if (!response.ok) {
     const detail = await response.text()
-    throw new Error(`管理员验证邮件发送失败：${detail}`)
+    console.error('sendAdminReauthEmail failed', {
+      status: response.status,
+      detail,
+    })
+    throw new Error('管理员验证邮件发送失败，请稍后重试。')
   }
 }
 
 function getReauthSecret() {
-  return process.env.ADMIN_REAUTH_SECRET ?? process.env.AUTH_SECRET ?? 'ustc-tta-admin-reauth-fallback'
+  const secret = process.env.ADMIN_REAUTH_SECRET ?? process.env.AUTH_SECRET
+  if (!secret) {
+    throw new Error('缺少 ADMIN_REAUTH_SECRET 或 AUTH_SECRET，无法进行管理员二次验证。')
+  }
+  return secret
 }
 
 function signReauthValue(userId: string, expiresAtMs: number) {
@@ -163,6 +172,7 @@ async function issueAdminReauth(userId: string) {
   cookieStore.set(ADMIN_REAUTH_COOKIE, signReauthValue(userId, expiresAt), {
     httpOnly: true,
     sameSite: 'lax',
+    secure: shouldUseSecureCookies(),
     path: '/admin',
     maxAge: ADMIN_REAUTH_TTL_SECONDS,
   })
@@ -185,6 +195,7 @@ async function issueAdminEmailChallenge(user: { id: string; email: string; nickn
     {
       httpOnly: true,
       sameSite: 'lax',
+      secure: shouldUseSecureCookies(),
       path: '/admin',
       maxAge: ADMIN_EMAIL_CHALLENGE_TTL_SECONDS,
     },
@@ -352,10 +363,11 @@ export async function adminDashboardAction(
     try {
       await issueAdminEmailChallenge(adminRecord)
     } catch (error) {
+      console.error('adminDashboardAction issueAdminEmailChallenge failed', error)
       return {
         ...prev,
         unlocked: false,
-        error: error instanceof Error ? error.message : '验证邮件发送失败，请稍后重试。',
+        error: '验证邮件发送失败，请稍后重试。',
       }
     }
 
@@ -681,10 +693,11 @@ export async function adminDashboardAction(
       createdTestAccounts,
     }
   } catch (error) {
+    console.error('adminDashboardAction failed', error)
     const data = await fetchAdminDashboardData()
     return {
       unlocked: true,
-      error: error instanceof Error ? error.message : '管理员操作失败，请重试。',
+      error: '管理员操作失败，请重试。',
       users: data.users,
       matches: data.matches,
     }

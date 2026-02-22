@@ -2,11 +2,18 @@
 
 import { createHash, randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { SESSION_COOKIE_NAME } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword, verifyPassword } from '@/lib/password'
+import { hitRateLimit } from '@/lib/rate-limit'
+import {
+  createSessionToken,
+  SESSION_COOKIE_NAME,
+  SESSION_TTL_SECONDS,
+  shouldUseSecureCookies,
+} from '@/lib/session'
 
 const EMAIL_VERIFY_TTL_MS = 1000 * 60 * 30
 
@@ -15,12 +22,45 @@ export type AuthFormState = {
   success?: string
 }
 
+const AUTH_WINDOW_MS = 15 * 60 * 1000
+const AUTH_MAX_ATTEMPTS = 8
+const RESEND_WINDOW_MS = 15 * 60 * 1000
+const RESEND_MAX_ATTEMPTS = 3
+
 function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
 
 function getBaseUrl() {
   return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+}
+
+async function getClientIp() {
+  const headerStore = await headers()
+  const forwardedFor = headerStore.get('x-forwarded-for')
+  if (forwardedFor) {
+    const first = forwardedFor.split(',')[0]?.trim()
+    if (first) return first
+  }
+
+  return headerStore.get('x-real-ip') ?? 'unknown'
+}
+
+async function checkAuthRateLimit(action: 'register' | 'login' | 'resend', email: string) {
+  const ip = await getClientIp()
+  const normalizedEmail = email.trim().toLowerCase() || 'unknown'
+
+  const key = `${action}:${ip}:${normalizedEmail}`
+  const overLimit = hitRateLimit(key, {
+    maxHits: action === 'resend' ? RESEND_MAX_ATTEMPTS : AUTH_MAX_ATTEMPTS,
+    windowMs: action === 'resend' ? RESEND_WINDOW_MS : AUTH_WINDOW_MS,
+  })
+
+  if (overLimit) {
+    return '操作过于频繁，请稍后再试。'
+  }
+
+  return null
 }
 
 async function sendVerificationEmail(email: string, nickname: string, token: string) {
@@ -58,7 +98,11 @@ async function sendVerificationEmail(email: string, nickname: string, token: str
 
   if (!response.ok) {
     const detail = await response.text()
-    throw new Error(`邮件发送失败：${detail}`)
+    console.error('sendVerificationEmail failed', {
+      status: response.status,
+      detail,
+    })
+    throw new Error('邮件发送失败，请稍后重试。')
   }
 }
 
@@ -85,6 +129,11 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
   const nickname = String(formData.get('nickname') ?? '').trim()
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
+
+  const rateLimited = await checkAuthRateLimit('register', email)
+  if (rateLimited) {
+    return { error: rateLimited }
+  }
 
   if (!nickname || !email || !password) {
     return { error: '请完整填写昵称、邮箱和密码。' }
@@ -116,8 +165,9 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
   try {
     await issueVerificationEmail(user.id, user.email, user.nickname)
   } catch (error) {
+    console.error('registerAction issueVerificationEmail failed', error)
     await prisma.user.delete({ where: { id: user.id } })
-    return { error: error instanceof Error ? error.message : '邮件发送失败，请稍后重试。' }
+    return { error: '邮件发送失败，请稍后重试。' }
   }
 
   return { success: '注册成功！请前往邮箱点击验证链接后再登录。' }
@@ -129,6 +179,11 @@ export async function loginAction(_: AuthFormState, formData: FormData): Promise
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
+
+  const rateLimited = await checkAuthRateLimit('login', email)
+  if (rateLimited) {
+    return { error: rateLimited }
+  }
 
   if (!email || !password) {
     return { error: '请输入邮箱和密码。' }
@@ -156,11 +211,12 @@ export async function loginAction(_: AuthFormState, formData: FormData): Promise
   }
 
   const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE_NAME, user.id, {
+  cookieStore.set(SESSION_COOKIE_NAME, createSessionToken(user.id), {
     httpOnly: true,
     sameSite: 'lax',
+    secure: shouldUseSecureCookies(),
     path: '/',
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: SESSION_TTL_SECONDS,
   })
 
   redirect('/profile')
@@ -172,6 +228,11 @@ export async function resendVerifyEmailAction(_: AuthFormState, formData: FormDa
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
+
+  const rateLimited = await checkAuthRateLimit('resend', email)
+  if (rateLimited) {
+    return { error: rateLimited }
+  }
 
   if (!email || !password) {
     return { error: '请输入邮箱和密码后再重发验证邮件。' }
@@ -203,7 +264,8 @@ export async function resendVerifyEmailAction(_: AuthFormState, formData: FormDa
   try {
     await issueVerificationEmail(user.id, user.email, user.nickname)
   } catch (error) {
-    return { error: error instanceof Error ? error.message : '重发失败，请稍后重试。' }
+    console.error('resendVerifyEmailAction issueVerificationEmail failed', error)
+    return { error: '重发失败，请稍后重试。' }
   }
 
   return { success: '验证邮件已重发，请检查收件箱。' }
@@ -241,6 +303,9 @@ export async function logoutAction(formData: FormData) {
   }
 
   const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE_NAME)
+  cookieStore.delete({
+    name: SESSION_COOKIE_NAME,
+    path: '/',
+  })
   redirect('/auth')
 }

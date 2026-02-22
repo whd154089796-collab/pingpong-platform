@@ -1,18 +1,22 @@
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-
-export const SESSION_COOKIE_NAME = 'ustc_tta_session'
+import { SESSION_COOKIE_NAME, verifySessionToken } from '@/lib/session'
 
 export async function getCurrentUser() {
   const cookieStore = await cookies()
-  const sessionUserId = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  const rawSession = cookieStore.get(SESSION_COOKIE_NAME)?.value
 
-  if (!sessionUserId) {
+  if (!rawSession) {
+    return null
+  }
+
+  const session = verifySessionToken(rawSession)
+  if (!session) {
     return null
   }
 
   return prisma.user.findUnique({
-    where: { id: sessionUserId },
+    where: { id: session.userId },
     select: {
       id: true,
       email: true,

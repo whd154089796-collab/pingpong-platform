@@ -646,7 +646,8 @@ export async function previewGroupingAction(matchId: string, _: GroupingAdminSta
       previewJson: JSON.stringify(payload),
     }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : '生成分组失败。' }
+    console.error('generateGroupingAction failed', error)
+    return { error: '生成分组失败。' }
   }
 }
 
@@ -926,7 +927,8 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
       })
     })
   } catch (error) {
-    return { error: error instanceof Error ? error.message : '确认失败。' }
+    console.error('confirmMatchResultAction failed', error)
+    return { error: '确认失败。' }
   }
 
   revalidatePath('/rankings')

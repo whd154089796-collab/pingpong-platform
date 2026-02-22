@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { extname, join } from 'node:path'
+import { join } from 'node:path'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
@@ -21,6 +21,43 @@ function extensionFromMimeType(type: string) {
   if (type === 'image/webp') return '.webp'
   if (type === 'image/gif') return '.gif'
   return ''
+}
+
+function hasImageMagicBytes(type: string, buffer: Buffer) {
+  if (type === 'image/png') {
+    if (buffer.length < 8) return false
+    return (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a
+    )
+  }
+
+  if (type === 'image/jpeg') {
+    if (buffer.length < 3) return false
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+  }
+
+  if (type === 'image/gif') {
+    if (buffer.length < 6) return false
+    const signature = buffer.subarray(0, 6).toString('ascii')
+    return signature === 'GIF87a' || signature === 'GIF89a'
+  }
+
+  if (type === 'image/webp') {
+    if (buffer.length < 12) return false
+    return (
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    )
+  }
+
+  return false
 }
 
 export async function updateProfileAction(_: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
@@ -58,19 +95,23 @@ export async function updateProfileAction(_: ProfileFormState, formData: FormDat
   }
 
   if (avatarFile instanceof File && avatarFile.size > 0) {
-    if (!avatarFile.type.startsWith('image/')) {
+    const extension = extensionFromMimeType(avatarFile.type)
+    if (!extension) {
       return { error: '头像文件必须是图片格式。' }
     }
     if (avatarFile.size > MAX_AVATAR_BYTES) {
       return { error: '头像大小不能超过 2MB。' }
     }
 
-    const extension = extensionFromMimeType(avatarFile.type) || extname(avatarFile.name) || '.png'
+    const buffer = Buffer.from(await avatarFile.arrayBuffer())
+    if (!hasImageMagicBytes(avatarFile.type, buffer)) {
+      return { error: '头像文件内容与格式不匹配，请重新选择图片。' }
+    }
+
     const filename = `${currentUser.id}-${randomUUID()}${extension}`
     const avatarFolder = join(process.cwd(), 'public', 'uploads', 'avatars')
     await mkdir(avatarFolder, { recursive: true })
 
-    const buffer = Buffer.from(await avatarFile.arrayBuffer())
     await writeFile(join(avatarFolder, filename), buffer)
     nextAvatarUrl = `/uploads/avatars/${filename}`
   }
