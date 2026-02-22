@@ -43,6 +43,20 @@ export type AdminDashboardState = {
   createdTestAccounts?: string[]
 }
 
+type AdminDashboardUserRow = {
+  id: string
+  email: string
+  nickname: string
+  avatarUrl: string | null
+  role: 'user' | 'admin'
+  isBanned: boolean
+  createdAt: Date
+  updatedAt: Date
+  registrations: Array<{ createdAt: Date }>
+  reportedResults: Array<{ createdAt: Date }>
+  createdMatches: Array<{ createdAt: Date }>
+}
+
 const INITIAL_ADMIN_DASHBOARD_STATE: AdminDashboardState = {
   unlocked: false,
   users: [],
@@ -250,7 +264,7 @@ async function fetchAdminDashboardData() {
     }),
   ])
 
-  const mappedUsers: AdminDashboardUser[] = users.map((user) => {
+  const mappedUsers: AdminDashboardUser[] = users.map((user: AdminDashboardUserRow) => {
     const lastActivityCandidates = [
       user.updatedAt,
       user.registrations[0]?.createdAt,
