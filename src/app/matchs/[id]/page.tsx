@@ -307,6 +307,9 @@ export default async function MatchDetailPage({
     return `/matchs/${match.id}${queryString ? `?${queryString}` : ""}${options?.hash ?? ""}`;
   };
 
+  const statusLabel =
+    statusLabelMap[match.status as keyof typeof statusLabelMap] ?? "状态未知";
+
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <Link
@@ -321,7 +324,7 @@ export default async function MatchDetailPage({
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-sm font-medium text-cyan-100">
-              {statusLabelMap[match.status]}
+              {statusLabel}
             </span>
             <h1 className="mt-3 text-3xl font-bold text-white">
               {match.title}
