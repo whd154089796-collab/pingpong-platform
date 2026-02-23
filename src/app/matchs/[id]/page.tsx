@@ -6,13 +6,11 @@ import { getCurrentUser } from "@/lib/auth";
 import RegisterMatchButton from "@/components/match/RegisterMatchButton";
 import UnregisterMatchButton from "@/components/match/UnregisterMatchButton";
 import MatchSettingsForm from "@/components/match/MatchSettingsForm";
-import GroupingAdminPanel from "@/components/match/GroupingAdminPanel";
 import AdminResultsSection from "@/components/match/detail/AdminResultsSection";
 import GroupingResultSection from "@/components/match/detail/GroupingResultSection";
 import GroupsOverviewSection from "@/components/match/detail/GroupsOverviewSection";
 import MyProgressSection from "@/components/match/detail/MyProgressSection";
 import RegisteredPlayersSection from "@/components/match/detail/RegisteredPlayersSection";
-import { generateGroupingPayload } from "@/lib/tournament";
 import {
   getDoublesTeamForUser,
   getPendingMatchInvitesForUser,
@@ -160,52 +158,6 @@ export default async function MatchDetailPage({
       }>;
     };
   } | null;
-
-  const defaultGroupCount = Math.max(
-    1,
-    Math.min(
-      8,
-      Math.ceil(
-        match.registrations.length / (match.format === "group_only" ? 6 : 4),
-      ),
-    ),
-  );
-
-  const fallbackGroupingPayload =
-    canManageGrouping &&
-    !groupingPayload &&
-    now >= match.registrationDeadline &&
-    match.registrations.length >= 2
-      ? (() => {
-          try {
-            return generateGroupingPayload(
-              match.format,
-              match.registrations.map(
-                (item: {
-                  user: {
-                    id: string;
-                    nickname: string;
-                    points: number;
-                    eloRating: number;
-                  };
-                }) => ({
-                  id: item.user.id,
-                  nickname: item.user.nickname,
-                  points: item.user.points,
-                  eloRating: item.user.eloRating,
-                }),
-              ),
-              {
-                groupCount: defaultGroupCount,
-                qualifiersPerGroup:
-                  match.format === "group_then_knockout" ? 2 : undefined,
-              },
-            );
-          } catch {
-            return null;
-          }
-        })()
-      : null;
 
   const filledKnockoutRounds = groupingPayload?.knockout
     ? resolveFilledKnockoutRounds({
@@ -637,16 +589,24 @@ export default async function MatchDetailPage({
       )}
 
       {canManageGrouping && (
-        <GroupingAdminPanel
-          matchId={match.id}
-          initialPayloadJson={
-            groupingPayload
-              ? JSON.stringify(groupingPayload)
-              : fallbackGroupingPayload
-                ? JSON.stringify(fallbackGroupingPayload)
-                : undefined
-          }
-        />
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-amber-100">
+                分组与签位管理（发起人/管理员）
+              </h2>
+              <p className="mt-1 text-sm text-amber-100/80">
+                点击进入后可编辑分组并发布结果。
+              </p>
+            </div>
+            <Link
+              href={`/matchs/${match.id}/grouping`}
+              className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-sm font-medium text-amber-100 hover:bg-amber-500/10"
+            >
+              进入分组与签位管理
+            </Link>
+          </div>
+        </div>
       )}
 
       {(!groupingPayload ||

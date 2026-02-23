@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
+  previewGroupingAction,
   confirmGroupingAction,
   type GroupingAdminState,
 } from "@/app/matchs/actions";
@@ -31,6 +32,11 @@ type GroupingPayload = {
 type Props = {
   matchId: string;
   initialPayloadJson?: string;
+  collapsible?: boolean;
+  matchFormat: "group_only" | "group_then_knockout";
+  participantCount: number;
+  defaultGroupCount: number;
+  defaultQualifiersPerGroup: number;
 };
 
 const initialState: GroupingAdminState = {};
@@ -50,12 +56,39 @@ function recalculateGroupAverage(group: GroupingPayload["groups"][number]) {
   return Math.round(sum / group.players.length);
 }
 
+function isPowerOfTwo(value: number) {
+  return value > 0 && (value & (value - 1)) === 0;
+}
+
+function buildGroupSizeSummary(groups: GroupingPayload["groups"]) {
+  const bucket = new Map<number, number>();
+  for (const group of groups) {
+    const size = group.players.length;
+    bucket.set(size, (bucket.get(size) ?? 0) + 1);
+  }
+
+  return [...bucket.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([size, count]) => `${size}人组×${count}`)
+    .join("，");
+}
+
 export default function GroupingAdminPanel({
   matchId,
   initialPayloadJson,
+  collapsible = true,
+  matchFormat,
+  participantCount,
+  defaultGroupCount,
+  defaultQualifiersPerGroup,
 }: Props) {
+  const previewAction = previewGroupingAction.bind(null, matchId);
   const confirmAction = confirmGroupingAction.bind(null, matchId);
 
+  const [previewState, previewFormAction, previewPending] = useActionState(
+    previewAction,
+    initialState,
+  );
   const [confirmState, confirmFormAction, confirmPending] = useActionState(
     confirmAction,
     initialState,
@@ -63,6 +96,56 @@ export default function GroupingAdminPanel({
   const [editablePayload, setEditablePayload] =
     useState<GroupingPayload | null>(() => parsePayload(initialPayloadJson));
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
+  const [groupCount, setGroupCount] = useState(defaultGroupCount);
+  const [qualifiersPerGroup, setQualifiersPerGroup] = useState(
+    defaultQualifiersPerGroup,
+  );
+
+  const potentialFailureReasons: string[] = [];
+  if (participantCount < 2) {
+    potentialFailureReasons.push("报名人数不足（至少需要 2 人）");
+  }
+  if (!Number.isFinite(groupCount) || groupCount < 1) {
+    potentialFailureReasons.push("组数必须为正整数");
+  }
+  if (groupCount > participantCount) {
+    potentialFailureReasons.push("组数不能超过报名人数");
+  }
+  if (matchFormat === "group_then_knockout") {
+    const totalQualified = groupCount * qualifiersPerGroup;
+    if (!Number.isFinite(qualifiersPerGroup) || qualifiersPerGroup < 1) {
+      potentialFailureReasons.push("每组晋级人数必须为正整数");
+    }
+    if (qualifiersPerGroup > participantCount) {
+      potentialFailureReasons.push("每组晋级人数不能超过报名人数");
+    }
+    if (
+      Number.isFinite(groupCount) &&
+      Number.isFinite(qualifiersPerGroup) &&
+      groupCount >= 1 &&
+      qualifiersPerGroup >= 1 &&
+      !isPowerOfTwo(totalQualified)
+    ) {
+      potentialFailureReasons.push("组数 × 每组晋级人数 必须为 2 的次幂");
+    }
+    if (
+      Number.isFinite(groupCount) &&
+      groupCount >= 1 &&
+      Math.ceil(participantCount / groupCount) < qualifiersPerGroup
+    ) {
+      potentialFailureReasons.push(
+        "存在小组人数可能小于晋级人数，请减少组数或降低晋级人数",
+      );
+    }
+  }
+
+  useEffect(() => {
+    if (!previewState.previewJson) return;
+    const parsed = parsePayload(previewState.previewJson);
+    if (parsed) {
+      setEditablePayload(parsed);
+    }
+  }, [previewState.previewJson]);
 
   const payload = editablePayload;
   const handleMovePlayer = (playerId: string, sourceGroupName: string) => {
@@ -115,25 +198,109 @@ export default function GroupingAdminPanel({
     }));
   };
 
-  return (
-    <details className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-6">
-      <summary className="cursor-pointer list-none text-lg font-semibold text-amber-100 marker:hidden">
-        <span className="inline-flex items-center gap-2">
-          分组与签位管理（发起人/管理员）
-          <span className="text-xs font-normal text-amber-200/70">
-            默认折叠，点击展开
-          </span>
-        </span>
-      </summary>
-
-      <div className="mt-5 space-y-5">
+  const panelContent = (
+    <div className={collapsible ? "mt-5 space-y-5" : "space-y-5"}>
         {payload && (
-          <div className="space-y-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4">
+          <div
+            className={
+              collapsible
+                ? "space-y-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4"
+                : "space-y-4"
+            }
+          >
+            <form
+              action={previewFormAction}
+              className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3"
+            >
+              <input type="hidden" name="csrfToken" defaultValue="" />
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1 text-sm text-slate-300">
+                  <span>组数设置</span>
+                  <input
+                    type="number"
+                    name="groupCount"
+                    min={1}
+                    max={Math.max(participantCount, 1)}
+                    value={groupCount}
+                    onChange={(event) =>
+                      setGroupCount(Number(event.target.value) || 1)
+                    }
+                    className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
+                  />
+                </label>
+
+                {matchFormat === "group_then_knockout" ? (
+                  <label className="space-y-1 text-sm text-slate-300">
+                    <span>每组晋级人数</span>
+                    <input
+                      type="number"
+                      name="qualifiersPerGroup"
+                      min={1}
+                      max={Math.max(participantCount, 1)}
+                      value={qualifiersPerGroup}
+                      onChange={(event) =>
+                        setQualifiersPerGroup(Number(event.target.value) || 1)
+                      }
+                      className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
+                    />
+                  </label>
+                ) : (
+                  <div className="space-y-1 text-sm text-slate-400">
+                    <span>每组晋级人数</span>
+                    <p className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-400">
+                      当前赛制为仅分组，不启用晋级设置
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={previewPending}
+                  className="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
+                >
+                  {previewPending ? "生成中..." : "生成分组预览"}
+                </button>
+                <p className="text-xs text-slate-400">
+                  参赛人数：{participantCount}，可先调整参数再生成预览。
+                </p>
+              </div>
+
+              {potentialFailureReasons.length > 0 ? (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2">
+                  <p className="text-xs font-medium text-amber-200">
+                    当前参数可能导致分组失败：
+                  </p>
+                  <ul className="mt-1 space-y-1 text-xs text-amber-100/90">
+                    {potentialFailureReasons.map((reason) => (
+                      <li key={reason}>• {reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {previewState.error ? (
+                <p className="text-sm text-rose-300">{previewState.error}</p>
+              ) : null}
+              {previewState.success ? (
+                <p className="text-sm text-emerald-300">
+                  {previewState.success}
+                </p>
+              ) : null}
+
+              {payload.groups.length > 0 ? (
+                <div className="rounded-md border border-emerald-500/35 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200">
+                  分组成功：共 {payload.groups.length} 组，{buildGroupSizeSummary(payload.groups)}。
+                </div>
+              ) : null}
+            </form>
+
             <p className="text-sm text-slate-300">
               当前编辑中的分组结果（确认后会发布给所有用户）
             </p>
 
-            <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+            <div className="space-y-1">
               <h4 className="text-sm font-semibold text-cyan-100">
                 调整分组成员
               </h4>
@@ -153,7 +320,7 @@ export default function GroupingAdminPanel({
                       {group.name}
                     </span>
                     <span className="text-xs text-slate-400">
-                      组均积分 {group.averagePoints}
+                      组均 ELO {group.averagePoints}
                     </span>
                   </div>
                   <ul className="space-y-2 text-sm text-slate-200">
@@ -170,6 +337,7 @@ export default function GroupingAdminPanel({
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <select
+                            aria-label={`为 ${p.nickname} 选择目标组`}
                             value={moveTargets[p.id] ?? ""}
                             onChange={(event) =>
                               setMoveTargets((prev) => ({
@@ -241,6 +409,30 @@ export default function GroupingAdminPanel({
           </p>
         )}
       </div>
+  );
+
+  if (!collapsible) {
+    return (
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-white">
+          分组与签位管理（发起人/管理员）
+        </h2>
+        {panelContent}
+      </section>
+    );
+  }
+
+  return (
+    <details className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-6">
+      <summary className="cursor-pointer list-none text-lg font-semibold text-amber-100 marker:hidden">
+        <span className="inline-flex items-center gap-2">
+          分组与签位管理（发起人/管理员）
+          <span className="text-xs font-normal text-amber-200/70">
+            默认折叠，点击展开
+          </span>
+        </span>
+      </summary>
+      {panelContent}
     </details>
   );
 }

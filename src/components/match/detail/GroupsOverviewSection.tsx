@@ -55,7 +55,7 @@ export default function GroupsOverviewSection({
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold text-cyan-100">{group.name}</h3>
                 <span className="text-xs text-slate-400">
-                  组均积分 {group.averagePoints}
+                  组均 ELO {group.averagePoints}
                 </span>
               </div>
               <ul className="space-y-1 text-sm text-slate-200">

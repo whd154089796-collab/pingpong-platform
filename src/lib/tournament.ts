@@ -54,9 +54,9 @@ function snakeDistribute(players: SeedPlayer[], groupCount: number) {
   return groups
 }
 
-function averagePoints(players: SeedPlayer[]) {
+function averageElo(players: SeedPlayer[]) {
   if (players.length === 0) return 0
-  return Math.round(players.reduce((sum, p) => sum + p.points, 0) / players.length)
+  return Math.round(players.reduce((sum, p) => sum + p.eloRating, 0) / players.length)
 }
 
 function isPowerOfTwo(value: number) {
@@ -182,7 +182,7 @@ export function generateGroupingPayload(
   participants: SeedPlayer[],
   config: { groupCount: number; qualifiersPerGroup?: number },
 ): GroupingPayload {
-  const sorted = [...participants].sort((a, b) => b.points - a.points || b.eloRating - a.eloRating)
+  const sorted = [...participants].sort((a, b) => b.eloRating - a.eloRating || b.points - a.points)
   const total = sorted.length
 
   if (config.groupCount < 1 || config.groupCount > total) {
@@ -194,7 +194,7 @@ export function generateGroupingPayload(
   const groups = groupPlayers.map((players, index) => ({
     name: `第 ${index + 1} 组`,
     players,
-    averagePoints: averagePoints(players),
+    averagePoints: averageElo(players),
   }))
 
   const payload: GroupingPayload = {

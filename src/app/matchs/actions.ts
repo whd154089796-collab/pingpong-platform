@@ -689,6 +689,9 @@ export async function previewGroupingAction(matchId: string, _: GroupingAdminSta
     }
   } catch (error) {
     console.error('generateGroupingAction failed', error)
+    if (error instanceof Error && error.message) {
+      return { error: `生成分组失败：${error.message}` }
+    }
     return { error: '生成分组失败。' }
   }
 }
