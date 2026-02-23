@@ -430,30 +430,60 @@ export function buildAdminGroupBattleTables(params: {
 
   return groups.map<AdminGroupBattleTable>((group) => {
     const playerIds = new Set(group.players.map((player) => player.id));
-    const confirmedByPair = new Map<string, { winnerId: string; scoreText: string }>();
-    const pendingByPair = new Map<string, { scoreText: string }>();
+    const confirmedByPair = new Map<
+      string,
+      {
+        winnerId: string;
+        winnerScore: number | null;
+        loserScore: number | null;
+        scoreText: string;
+      }
+    >();
+    const pendingByPair = new Map<
+      string,
+      {
+        winnerId: string;
+        winnerScore: number | null;
+        loserScore: number | null;
+        scoreText: string;
+      }
+    >();
 
-    for (const result of results) {
-      if (result.winnerTeamIds.length !== 1 || result.loserTeamIds.length !== 1)
-        continue;
-
+    for (const result of results.filter(
+      (r) => r.winnerTeamIds.length === 1 && r.loserTeamIds.length === 1,
+    )) {
       const winnerId = result.winnerTeamIds[0];
       const loserId = result.loserTeamIds[0];
       if (!playerIds.has(winnerId) || !playerIds.has(loserId)) continue;
+        
+      const sets = extractWinnerLoserSets(result.score);
+      const scoreText = extractScoreText(result.score);
+      const payload = { 
+        winnerId, 
+        winnerScore: sets?.winnerScore ?? null,
+        loserScore: sets?.loserScore ?? null,
+        scoreText 
+      };
 
       const key = pairKey(winnerId, loserId);
-      const scoreText = extractScoreText(result.score);
 
       if (result.confirmed) {
-        if (!confirmedByPair.has(key)) {
-          confirmedByPair.set(key, { winnerId, scoreText });
-        }
+        if (!confirmedByPair.has(key)) confirmedByPair.set(key, payload);
       } else if (!pendingByPair.has(key)) {
-        pendingByPair.set(key, { scoreText });
+        pendingByPair.set(key, payload);
       }
     }
 
     const cells: AdminGroupBattleTable["cells"] = {};
+
+    const formatScore = (rowId: string, data: { winnerId: string, winnerScore: number | null, loserScore: number | null, scoreText: string }) => {
+       if (data.winnerScore !== null && data.loserScore !== null) {
+          return rowId === data.winnerId
+             ? `${data.winnerScore}:${data.loserScore}`
+             : `${data.loserScore}:${data.winnerScore}`;
+       }
+       return data.scoreText;
+    }
 
     for (const rowPlayer of group.players) {
       for (const colPlayer of group.players) {
@@ -467,13 +497,13 @@ export function buildAdminGroupBattleTables(params: {
           cells[`${rowPlayer.id}::${colPlayer.id}`] = {
             status: "confirmed",
             label: confirmed.winnerId === rowPlayer.id ? "胜" : "负",
-            scoreText: confirmed.scoreText,
+            scoreText: formatScore(rowPlayer.id, confirmed),
           };
         } else if (pending) {
           cells[`${rowPlayer.id}::${colPlayer.id}`] = {
             status: "pending",
             label: "待确认",
-            scoreText: pending.scoreText,
+            scoreText: formatScore(rowPlayer.id, pending),
           };
         } else {
           cells[`${rowPlayer.id}::${colPlayer.id}`] = {
