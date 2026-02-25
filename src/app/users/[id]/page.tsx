@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trophy, Target, TrendingUp } from "lucide-react";
+import { Trophy, Target, TrendingUp } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { toClubId } from "@/lib/club-id";
+import UserProfileBackLink from "@/components/users/UserProfileBackLink";
 
 export default async function UserProfilePage({
   params,
@@ -38,13 +38,7 @@ export default async function UserProfilePage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
-      <Link
-        href="/rankings"
-        className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-200"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        返回排行榜
-      </Link>
+      <UserProfileBackLink />
 
       <div className="rounded-lg bg-linear-to-r from-blue-500 to-blue-700 p-8 text-white">
         <div className="flex items-center gap-6">

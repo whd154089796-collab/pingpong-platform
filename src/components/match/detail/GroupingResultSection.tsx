@@ -1,4 +1,5 @@
 import KnockoutBracket from "@/components/match/KnockoutBracket";
+import Link from "next/link";
 
 type GroupingPayload = {
   groups: Array<{
@@ -87,18 +88,19 @@ export default function GroupingResultSection({
                 <ul className="space-y-1 text-sm text-slate-200">
                   {myGroup.players.map((player) => (
                     <li key={player.id} className="flex justify-between">
-                      <span
+                      <Link
+                        href={`/users/${player.id}`}
                         className={
                           currentUserId && player.id === currentUserId
-                            ? "font-semibold text-amber-200"
-                            : ""
+                            ? "font-semibold text-amber-200 hover:underline"
+                            : "hover:text-cyan-300 hover:underline"
                         }
                       >
                         {player.nickname}
                         {currentUserId && player.id === currentUserId
                           ? "（我）"
                           : ""}
-                      </span>
+                      </Link>
                       <span className="text-slate-400">
                         {player.points} 分 / ELO {player.eloRating}
                       </span>

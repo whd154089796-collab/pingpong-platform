@@ -31,7 +31,18 @@ export default async function RootLayout({
         <div className="flex min-h-screen">
           <Sidebar />
           <div className="flex min-h-screen flex-1 flex-col">
-            <Header isLoggedIn={Boolean(currentUser)} />
+            <Header
+              isLoggedIn={Boolean(currentUser)}
+              currentUser={
+                currentUser
+                  ? {
+                      nickname: currentUser.nickname,
+                      avatarUrl: currentUser.avatarUrl,
+                      eloRating: currentUser.eloRating,
+                    }
+                  : null
+              }
+            />
             <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-6 lg:px-8">
               {children}
             </main>

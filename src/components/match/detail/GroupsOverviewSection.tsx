@@ -61,7 +61,12 @@ export default function GroupsOverviewSection({
               <ul className="space-y-1 text-sm text-slate-200">
                 {group.players.map((player) => (
                   <li key={player.id} className="flex justify-between">
-                    <span>{player.nickname}</span>
+                    <Link
+                      href={`/users/${player.id}`}
+                      className="hover:text-cyan-300 hover:underline"
+                    >
+                      {player.nickname}
+                    </Link>
                     <span className="text-slate-400">
                       {player.points} 分 / ELO {player.eloRating}
                     </span>

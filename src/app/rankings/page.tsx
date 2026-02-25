@@ -87,7 +87,7 @@ export default async function RankingsPage({
     <div className="mx-auto max-w-5xl space-y-8">
       <div className="flex items-center gap-3">
         <Trophy className="h-8 w-8 text-yellow-400" />
-        <h1 className="text-3xl font-bold text-white">排行榜（前十）</h1>
+        <h1 className="text-3xl font-bold text-white">排行榜</h1>
       </div>
 
       <div className="flex gap-2 border-b border-gray-600">

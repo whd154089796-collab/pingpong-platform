@@ -1,29 +1,40 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Menu, Trophy } from 'lucide-react'
-import { useState } from 'react'
+import Link from "next/link";
+import { Menu, Trophy } from "lucide-react";
+import { useState } from "react";
 
 type Props = {
-  isLoggedIn: boolean
-}
+  isLoggedIn: boolean;
+  currentUser?: {
+    nickname: string;
+    avatarUrl: string | null;
+    eloRating: number;
+  } | null;
+};
 
 const mobileNav = [
-  { href: '/', label: '首页' },
-  { href: '/matchs', label: '比赛大厅' },
-  { href: '/matchs/create', label: '发布比赛' },
-  { href: '/rankings', label: '排行榜' },
-  { href: '/profile', label: '个人中心' },
-]
+  { href: "/", label: "首页" },
+  { href: "/matchs", label: "比赛大厅" },
+  { href: "/matchs/create", label: "发布比赛" },
+  { href: "/rankings", label: "排行榜" },
+  { href: "/profile", label: "个人中心" },
+];
 
-export default function Header({ isLoggedIn }: Props) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+export default function Header({ isLoggedIn, currentUser }: Props) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const avatarFallback = (
+    currentUser?.nickname?.trim()?.[0] ?? "?"
+  ).toUpperCase();
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-700/70 bg-slate-900/90 backdrop-blur-xl lg:hidden">
       <nav className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold text-white">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-bold text-white"
+          >
             <Trophy className="text-cyan-300" />
             <span>USTC TTA</span>
           </Link>
@@ -38,12 +49,42 @@ export default function Header({ isLoggedIn }: Props) {
           </button>
         </div>
 
+        {currentUser && (
+          <Link
+            href="/profile"
+            className="mb-3 flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-slate-800/70 px-3 py-2"
+          >
+            <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-500/15 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/25">
+              {currentUser.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.nickname}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span aria-hidden="true">{avatarFallback}</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-100">
+                {currentUser.nickname}
+              </p>
+              <p className="text-xs text-cyan-200">
+                ELO {currentUser.eloRating}
+              </p>
+            </div>
+          </Link>
+        )}
+
         {isMenuOpen && (
           <div className="space-y-2 pb-4">
             {!isLoggedIn && (
               <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800/50 px-3 py-2 text-xs text-slate-300">
                 当前状态：待登录
-                <Link href="/auth" className="ml-2 text-cyan-300">去登录</Link>
+                <Link href="/auth" className="ml-2 text-cyan-300">
+                  去登录
+                </Link>
               </div>
             )}
             {mobileNav.map((item) => (
@@ -68,5 +109,5 @@ export default function Header({ isLoggedIn }: Props) {
         )}
       </nav>
     </header>
-  )
+  );
 }

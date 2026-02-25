@@ -319,6 +319,11 @@ export default function KnockoutBracket({
     setOffset(clampOffset(centeredOffset, targetScale));
   };
 
+  const buildPlayerProfileHref = (playerId?: string | null) => {
+    if (!playerId) return null;
+    return `/users/${playerId}`;
+  };
+
   useEffect(() => {
     if (!autoFocusMatchId) return;
     focusMatchById(autoFocusMatchId);
@@ -377,22 +382,47 @@ export default function KnockoutBracket({
           isSelfLabel(node.data.homePlayerId, node.data.homeLabel) ? 1.5 : 1
         }
       />
-      <text
-        x={14}
-        y={36}
-        fill="rgb(241,245,249)"
-        fontSize={12}
-        fontWeight={
-          isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
-            ? "600"
-            : "400"
-        }
-      >
-        {node.data.homeLabel}
-        {isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
-          ? "（我）"
-          : ""}
-      </text>
+      {buildPlayerProfileHref(node.data.homePlayerId) ? (
+        <a
+          href={buildPlayerProfileHref(node.data.homePlayerId) ?? undefined}
+          data-player-link="true"
+        >
+          <text
+            x={14}
+            y={36}
+            fill="rgb(241,245,249)"
+            fontSize={12}
+            fontWeight={
+              isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+                ? "600"
+                : "400"
+            }
+            style={{ cursor: "pointer", textDecoration: "underline" }}
+          >
+            {node.data.homeLabel}
+            {isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+              ? "（我）"
+              : ""}
+          </text>
+        </a>
+      ) : (
+        <text
+          x={14}
+          y={36}
+          fill="rgb(241,245,249)"
+          fontSize={12}
+          fontWeight={
+            isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+              ? "600"
+              : "400"
+          }
+        >
+          {node.data.homeLabel}
+          {isSelfLabel(node.data.homePlayerId, node.data.homeLabel)
+            ? "（我）"
+            : ""}
+        </text>
+      )}
       {node.data.homeScoreText ? (
         <text
           x={CARD_W - 14}
@@ -429,22 +459,47 @@ export default function KnockoutBracket({
           isSelfLabel(node.data.awayPlayerId, node.data.awayLabel) ? 1.5 : 1
         }
       />
-      <text
-        x={14}
-        y={64}
-        fill="rgb(241,245,249)"
-        fontSize={12}
-        fontWeight={
-          isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
-            ? "600"
-            : "400"
-        }
-      >
-        {node.data.awayLabel}
-        {isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
-          ? "（我）"
-          : ""}
-      </text>
+      {buildPlayerProfileHref(node.data.awayPlayerId) ? (
+        <a
+          href={buildPlayerProfileHref(node.data.awayPlayerId) ?? undefined}
+          data-player-link="true"
+        >
+          <text
+            x={14}
+            y={64}
+            fill="rgb(241,245,249)"
+            fontSize={12}
+            fontWeight={
+              isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+                ? "600"
+                : "400"
+            }
+            style={{ cursor: "pointer", textDecoration: "underline" }}
+          >
+            {node.data.awayLabel}
+            {isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+              ? "（我）"
+              : ""}
+          </text>
+        </a>
+      ) : (
+        <text
+          x={14}
+          y={64}
+          fill="rgb(241,245,249)"
+          fontSize={12}
+          fontWeight={
+            isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+              ? "600"
+              : "400"
+          }
+        >
+          {node.data.awayLabel}
+          {isSelfLabel(node.data.awayPlayerId, node.data.awayLabel)
+            ? "（我）"
+            : ""}
+        </text>
+      )}
       {node.data.awayScoreText ? (
         <text
           x={CARD_W - 14}
@@ -526,6 +581,12 @@ export default function KnockoutBracket({
           }
         }}
         onPointerDown={(event) => {
+          if (
+            event.target instanceof Element &&
+            event.target.closest("a[data-player-link='true']")
+          ) {
+            return;
+          }
           setDragging(true);
           event.currentTarget.setPointerCapture(event.pointerId);
           dragOriginRef.current = { x: event.clientX, y: event.clientY };
@@ -549,7 +610,7 @@ export default function KnockoutBracket({
         <svg
           width={scene.width}
           height={scene.height}
-          className="absolute left-0 top-0 pointer-events-none"
+          className="absolute left-0 top-0"
         >
           <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
             {scene.leftNodes.map((node) => {
