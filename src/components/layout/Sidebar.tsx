@@ -3,6 +3,7 @@ import {
   ShieldCheck,
   CalendarRange,
   ChevronRight,
+  Clock3,
   Home,
   Mail,
   Medal,
@@ -27,6 +28,7 @@ export default async function Sidebar() {
     currentUser?.role === "admin"
       ? [
           ...navItems,
+          { href: "/quick-match", label: "快速比赛", icon: Clock3 },
           { href: "/team-invites", label: "组队信息", icon: Mail },
           { href: "/matchs/create", label: "发布比赛", icon: PlusSquare },
           { href: "/admin", label: "管理员控制台", icon: ShieldCheck },
@@ -34,6 +36,7 @@ export default async function Sidebar() {
       : currentUser
         ? [
             ...navItems,
+            { href: "/quick-match", label: "快速比赛", icon: Clock3 },
             { href: "/team-invites", label: "组队信息", icon: Mail },
           ]
         : navItems;

@@ -387,7 +387,7 @@ export async function registerDoublesTeamByUser(matchId: string, currentUserId: 
     `
   })
 
-  return { ok: true as const }
+  return { ok: true as const, memberIds }
 }
 
 export async function unregisterDoublesTeamByUser(matchId: string, currentUserId: string) {
@@ -413,7 +413,7 @@ export async function unregisterDoublesTeamByUser(matchId: string, currentUserId
     `
   })
 
-  return { ok: true as const }
+  return { ok: true as const, memberIds }
 }
 
 export async function removeRegisteredDoublesTeamByMember(matchId: string, userId: string) {
@@ -433,7 +433,7 @@ export async function removeRegisteredDoublesTeamByMember(matchId: string, userI
     `
   })
 
-  return { ok: true as const }
+  return { ok: true as const, memberIds }
 }
 
 export async function getInvitesForUser(currentUserId: string) {

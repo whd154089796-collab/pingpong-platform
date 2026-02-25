@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import {
-  confirmMatchResultVoidAction,
+  confirmMatchResultAction,
   submitKnockoutMatchResultAction,
   submitGroupMatchResultAction,
   type MatchFormState,
@@ -18,6 +18,35 @@ type PendingResult = {
   loserLabel: string;
   scoreText: string;
 };
+
+function PendingResultConfirmButton({
+  matchId,
+  resultId,
+}: {
+  matchId: string;
+  resultId: string;
+}) {
+  const action = async (_: MatchFormState, formData: FormData) =>
+    confirmMatchResultAction(matchId, resultId, formData);
+  const [state, formAction, pending] = useActionState(action, initialState);
+
+  return (
+    <form action={formAction} className="mt-2 space-y-1">
+      <input type="hidden" name="csrfToken" defaultValue="" />
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-md border border-emerald-500/40 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-60"
+      >
+        {pending ? "确认中..." : "我确认该结果"}
+      </button>
+      {state.error ? <p className="text-xs text-rose-300">{state.error}</p> : null}
+      {state.success ? (
+        <p className="text-xs text-emerald-300">{state.success}</p>
+      ) : null}
+    </form>
+  );
+}
 
 export default function ReportResultForm({
   matchId,
@@ -76,6 +105,9 @@ export default function ReportResultForm({
           {mode === "knockout"
             ? "当前为淘汰赛阶段，请登记本轮对局结果。提交后需由对手或管理员确认。"
             : "系统会根据你当前小组中尚未对战的对手自动筛选可登记对象。提交后需由对手或管理员确认。"}
+        </p>
+        <p className="text-xs text-slate-400">
+          积分规则：报名 +1，单场胜利（确认后）+1；单人单赛事最多获得 5 分。
         </p>
 
         {mode === "knockout" ? (
@@ -223,22 +255,7 @@ export default function ReportResultForm({
               {item.reporterId === currentUserId ? (
                 <p className="mt-2 text-xs text-amber-300">等待对方确认中</p>
               ) : (
-                <form
-                  action={confirmMatchResultVoidAction.bind(
-                    null,
-                    matchId,
-                    item.id,
-                  )}
-                  className="mt-2"
-                >
-                  <input type="hidden" name="csrfToken" defaultValue="" />
-                  <button
-                    type="submit"
-                    className="rounded-md border border-emerald-500/40 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10"
-                  >
-                    我确认该结果
-                  </button>
-                </form>
+                <PendingResultConfirmButton matchId={matchId} resultId={item.id} />
               )}
             </div>
           ))

@@ -15,6 +15,8 @@ import {
 } from '@/lib/doubles'
 
 const UNLIMITED_MAX_PARTICIPANTS = 2147483647
+const MATCH_POINTS_CAP_PER_MATCH = 5
+const MATCH_POINTS_REFERENCE_PREFIX = 'match-points:'
 
 export type MatchFormState = {
   error?: string
@@ -361,6 +363,244 @@ function canManageGrouping(currentUser: Awaited<ReturnType<typeof getCurrentUser
   return currentUser.id === createdBy || currentUser.role === 'admin'
 }
 
+async function grantMatchRewardPoints(
+  tx: Prisma.TransactionClient,
+  params: {
+    userId: string
+    matchId: string
+    eventKey: string
+    desiredAmount: number
+    reason: string
+  },
+) {
+  const { userId, matchId, eventKey, desiredAmount, reason } = params
+  const referenceId = `${MATCH_POINTS_REFERENCE_PREFIX}${matchId}:${eventKey}`
+  const matchReferencePrefix = `${MATCH_POINTS_REFERENCE_PREFIX}${matchId}:`
+
+  const [existingEventReward, awardedSummary, user] = await Promise.all([
+    tx.pointsTransaction.findFirst({
+      where: {
+        userId,
+        referenceId,
+      },
+      select: { id: true },
+    }),
+    tx.pointsTransaction.aggregate({
+      where: {
+        userId,
+        referenceId: {
+          startsWith: matchReferencePrefix,
+        },
+      },
+      _sum: { amount: true },
+    }),
+    tx.user.findUnique({ where: { id: userId }, select: { points: true } }),
+  ])
+
+  const alreadyAwarded = awardedSummary._sum.amount ?? 0
+  if (!user || existingEventReward) {
+    return {
+      granted: 0,
+      totalAwarded: alreadyAwarded,
+    }
+  }
+
+  const remaining = Math.max(0, MATCH_POINTS_CAP_PER_MATCH - alreadyAwarded)
+  const grant = Math.max(0, Math.min(desiredAmount, remaining))
+
+  if (grant <= 0) {
+    return {
+      granted: 0,
+      totalAwarded: alreadyAwarded,
+    }
+  }
+
+  const balanceAfter = user.points + grant
+
+  await tx.user.update({
+    where: { id: userId },
+    data: {
+      points: {
+        increment: grant,
+      },
+    },
+  })
+
+  await tx.pointsTransaction.create({
+    data: {
+      userId,
+      amount: grant,
+      balanceAfter,
+      type: 'earn',
+      reason,
+      referenceId,
+    },
+  })
+
+  return {
+    granted: grant,
+    totalAwarded: alreadyAwarded + grant,
+  }
+}
+
+async function grantRegistrationRewardPoints(
+  tx: Prisma.TransactionClient,
+  params: {
+    userId: string
+    matchId: string
+  },
+) {
+  const { userId, matchId } = params
+  const registrationReferencePrefix = `${MATCH_POINTS_REFERENCE_PREFIX}${matchId}:register:`
+
+  const [registrationSummary, matchSummary, user] = await Promise.all([
+    tx.pointsTransaction.aggregate({
+      where: {
+        userId,
+        referenceId: {
+          startsWith: registrationReferencePrefix,
+        },
+      },
+      _sum: { amount: true },
+    }),
+    tx.pointsTransaction.aggregate({
+      where: {
+        userId,
+        referenceId: {
+          startsWith: `${MATCH_POINTS_REFERENCE_PREFIX}${matchId}:`,
+        },
+      },
+      _sum: { amount: true },
+    }),
+    tx.user.findUnique({ where: { id: userId }, select: { points: true } }),
+  ])
+
+  const netRegistrationAwarded = registrationSummary._sum.amount ?? 0
+  const netMatchAwarded = matchSummary._sum.amount ?? 0
+
+  if (!user || netRegistrationAwarded >= 1) {
+    return {
+      granted: 0,
+      totalAwarded: netMatchAwarded,
+    }
+  }
+
+  const remaining = Math.max(0, MATCH_POINTS_CAP_PER_MATCH - netMatchAwarded)
+  const grant = Math.min(1 - netRegistrationAwarded, remaining)
+
+  if (grant <= 0) {
+    return {
+      granted: 0,
+      totalAwarded: netMatchAwarded,
+    }
+  }
+
+  const balanceAfter = user.points + grant
+
+  await tx.user.update({
+    where: { id: userId },
+    data: {
+      points: {
+        increment: grant,
+      },
+    },
+  })
+
+  await tx.pointsTransaction.create({
+    data: {
+      userId,
+      amount: grant,
+      balanceAfter,
+      type: 'earn',
+      reason: '报名比赛奖励',
+      referenceId: `${registrationReferencePrefix}earn:${Date.now()}`,
+    },
+  })
+
+  return {
+    granted: grant,
+    totalAwarded: netMatchAwarded + grant,
+  }
+}
+
+async function refundRegistrationRewardPoints(
+  tx: Prisma.TransactionClient,
+  params: {
+    userId: string
+    matchId: string
+  },
+) {
+  const { userId, matchId } = params
+  const registrationReferencePrefix = `${MATCH_POINTS_REFERENCE_PREFIX}${matchId}:register:`
+  const matchReferencePrefix = `${MATCH_POINTS_REFERENCE_PREFIX}${matchId}:`
+
+  const [registrationSummary, matchSummary, user] = await Promise.all([
+    tx.pointsTransaction.aggregate({
+      where: {
+        userId,
+        referenceId: {
+          startsWith: registrationReferencePrefix,
+        },
+      },
+      _sum: { amount: true },
+    }),
+    tx.pointsTransaction.aggregate({
+      where: {
+        userId,
+        referenceId: {
+          startsWith: matchReferencePrefix,
+        },
+      },
+      _sum: { amount: true },
+    }),
+    tx.user.findUnique({ where: { id: userId }, select: { points: true } }),
+  ])
+
+  const netRegistrationAwarded = registrationSummary._sum.amount ?? 0
+  const netMatchAwarded = matchSummary._sum.amount ?? 0
+  if (!user || netRegistrationAwarded <= 0) {
+    return {
+      deducted: 0,
+      totalAwarded: netMatchAwarded,
+    }
+  }
+
+  const deduction = Math.min(1, netRegistrationAwarded, user.points)
+  if (deduction <= 0) {
+    return {
+      deducted: 0,
+      totalAwarded: netMatchAwarded,
+    }
+  }
+
+  const balanceAfter = user.points - deduction
+
+  await tx.user.update({
+    where: { id: userId },
+    data: {
+      points: {
+        decrement: deduction,
+      },
+    },
+  })
+
+  await tx.pointsTransaction.create({
+    data: {
+      userId,
+      amount: -deduction,
+      balanceAfter,
+      type: 'refund',
+      reason: '退出报名返还奖励积分',
+      referenceId: `${registrationReferencePrefix}refund:${Date.now()}`,
+    },
+  })
+
+  return {
+    deducted: deduction,
+    totalAwarded: netMatchAwarded - deduction,
+  }
+}
+
 
 async function applyConfirmedResult(tx: Prisma.TransactionClient, payload: {
   matchId: string
@@ -491,23 +731,52 @@ export async function registerMatchAction(matchId: string, _: MatchFormState, fo
     const result = await registerDoublesTeamByUser(matchId, currentUser.id)
     if (!result.ok) return { error: result.error }
 
+    const currentUserReward = await prisma.$transaction(async (tx) => {
+      let current = { granted: 0, totalAwarded: 0 }
+      for (const memberId of result.memberIds) {
+        const reward = await grantRegistrationRewardPoints(tx, {
+          userId: memberId,
+          matchId,
+        })
+        if (memberId === currentUser.id) {
+          current = reward
+        }
+      }
+      return current
+    })
+
     revalidatePath('/matchs')
     revalidatePath('/team-invites')
     revalidatePath(`/matchs/${matchId}`)
-    return { success: '双打小队报名成功！' }
+    return {
+      success:
+        `双打小队报名成功！报名奖励：积分+${currentUserReward.granted}。` +
+        `（本赛事已获积分 ${currentUserReward.totalAwarded}/${MATCH_POINTS_CAP_PER_MATCH}）`,
+    }
   }
 
   try {
-    await prisma.registration.create({
-      data: { matchId, userId: currentUser.id },
+    const reward = await prisma.$transaction(async (tx) => {
+      await tx.registration.create({
+        data: { matchId, userId: currentUser.id },
+      })
+
+      return grantRegistrationRewardPoints(tx, {
+        userId: currentUser.id,
+        matchId,
+      })
     })
+
+    revalidatePath('/matchs')
+    revalidatePath(`/matchs/${matchId}`)
+    return {
+      success:
+        `报名成功！报名奖励：积分+${reward.granted}。` +
+        `（本赛事已获积分 ${reward.totalAwarded}/${MATCH_POINTS_CAP_PER_MATCH}）`,
+    }
   } catch {
     return { error: '你已报名该比赛。' }
   }
-
-  revalidatePath('/matchs')
-  revalidatePath(`/matchs/${matchId}`)
-  return { success: '报名成功！' }
 }
 
 export async function updateMatchFormatAction(matchId: string, _: MatchFormState, formData: FormData): Promise<MatchFormState> {
@@ -562,23 +831,66 @@ export async function unregisterMatchAction(matchId: string, _: MatchFormState, 
     const result = await unregisterDoublesTeamByUser(matchId, currentUser.id)
     if (!result.ok) return { error: result.error }
 
+    const currentUserRefund = await prisma.$transaction(async (tx) => {
+      let current = { deducted: 0, totalAwarded: 0 }
+      for (const memberId of result.memberIds) {
+        const refund = await refundRegistrationRewardPoints(tx, {
+          userId: memberId,
+          matchId,
+        })
+        if (memberId === currentUser.id) {
+          current = refund
+        }
+      }
+      return current
+    })
+
     revalidatePath('/team-invites')
     revalidatePath('/matchs')
     revalidatePath(`/matchs/${matchId}`)
-    return { success: '已退出双打小队报名。' }
+    return {
+      success:
+        `已退出双打小队报名，已扣除积分 ${currentUserRefund.deducted}。` +
+        `（本赛事已获积分 ${currentUserRefund.totalAwarded}/${MATCH_POINTS_CAP_PER_MATCH}）`,
+    }
   }
 
-  const deleted = await prisma.registration.deleteMany({
-    where: { matchId, userId: currentUser.id },
+  const unregisterResult = await prisma.$transaction(async (tx) => {
+    const deleted = await tx.registration.deleteMany({
+      where: { matchId, userId: currentUser.id },
+    })
+
+    if (deleted.count === 0) {
+      return {
+        deleted: 0,
+        deducted: 0,
+        totalAwarded: 0,
+      }
+    }
+
+    const refund = await refundRegistrationRewardPoints(tx, {
+      userId: currentUser.id,
+      matchId,
+    })
+
+    return {
+      deleted: deleted.count,
+      deducted: refund.deducted,
+      totalAwarded: refund.totalAwarded,
+    }
   })
 
-  if (deleted.count === 0) {
+  if (unregisterResult.deleted === 0) {
     return { error: '你尚未报名该比赛。' }
   }
 
   revalidatePath('/matchs')
   revalidatePath(`/matchs/${matchId}`)
-  return { success: '已退出报名。' }
+  return {
+    success:
+      `已退出报名，已扣除积分 ${unregisterResult.deducted}。` +
+      `（本赛事已获积分 ${unregisterResult.totalAwarded}/${MATCH_POINTS_CAP_PER_MATCH}）`,
+  }
 }
 
 export async function updateMatchAction(matchId: string, formData: FormData) {
@@ -950,6 +1262,13 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
   if (!isOpponent && !isManager) return { error: '仅对阵双方或管理员可确认。' }
   if (result.reportedBy === currentUser.id && !isManager) return { error: '登记方需由对手确认，或由管理员确认。' }
 
+  let winnerRewardSummary: Array<{
+    userId: string
+    wins: number
+    granted: number
+    totalAwarded: number
+  }> = []
+
   try {
     await prisma.$transaction(async (tx) => {
       const latest = await tx.matchResult.findUnique({ where: { id: resultId } })
@@ -970,6 +1289,36 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
           verifierId: currentUser.id,
         },
       })
+
+      const uniqueWinnerIds = [...new Set(latest.winnerTeamIds)]
+      winnerRewardSummary = await Promise.all(
+        uniqueWinnerIds.map(async (winnerId) => {
+          const reward = await grantMatchRewardPoints(tx, {
+            userId: winnerId,
+            matchId,
+            eventKey: `win:${latest.id}:${winnerId}`,
+            desiredAmount: 1,
+            reason: '比赛胜利奖励',
+          })
+
+          const wins = await tx.matchResult.count({
+            where: {
+              matchId,
+              confirmed: true,
+              winnerTeamIds: {
+                has: winnerId,
+              },
+            },
+          })
+
+          return {
+            userId: winnerId,
+            wins,
+            granted: reward.granted,
+            totalAwarded: reward.totalAwarded,
+          }
+        }),
+      )
     })
   } catch (error) {
     console.error('confirmMatchResultAction failed', error)
@@ -979,7 +1328,26 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
   revalidatePath('/rankings')
   revalidatePath('/profile')
   revalidatePath(`/matchs/${matchId}`)
-  return { success: '确认成功，结果已生效并更新积分。' }
+  if (winnerRewardSummary.length === 1) {
+    const winner = winnerRewardSummary[0]
+    return {
+      success:
+        `确认成功。胜方当前累计获胜 ${winner.wins} 场，` +
+        `本次积分 +${winner.granted}，` +
+        `本赛事已获积分 ${winner.totalAwarded}/${MATCH_POINTS_CAP_PER_MATCH}。`,
+    }
+  }
+
+  if (winnerRewardSummary.length > 1) {
+    const totalGranted = winnerRewardSummary.reduce((sum, item) => sum + item.granted, 0)
+    return {
+      success:
+        `确认成功。胜方已累计胜场并结算积分，` +
+        `本次共发放积分 +${totalGranted}（单人单赛事封顶 ${MATCH_POINTS_CAP_PER_MATCH}）。`,
+    }
+  }
+
+  return { success: '确认成功，结果已生效。' }
 }
 
 export async function confirmMatchResultVoidAction(matchId: string, resultId: string, formData: FormData): Promise<void> {
@@ -1036,17 +1404,32 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
       return { error: removeResult.error }
     }
 
+    await prisma.$transaction(async (tx) => {
+      for (const memberId of removeResult.memberIds) {
+        await refundRegistrationRewardPoints(tx, {
+          userId: memberId,
+          matchId,
+        })
+      }
+    })
+
     revalidatePath('/matchs')
     revalidatePath('/team-invites')
     revalidatePath(`/matchs/${matchId}`)
-    return { success: '已移除该双打小队。' }
+    return { success: '已移除该双打小队，并回收报名奖励积分。' }
   }
 
-  await prisma.registration.deleteMany({ where: { matchId, userId } })
+  await prisma.$transaction(async (tx) => {
+    await tx.registration.deleteMany({ where: { matchId, userId } })
+    await refundRegistrationRewardPoints(tx, {
+      userId,
+      matchId,
+    })
+  })
 
   revalidatePath('/matchs')
   revalidatePath(`/matchs/${matchId}`)
-  return { success: '已移除该参赛者。' }
+  return { success: '已移除该参赛者，并回收报名奖励积分。' }
 }
 
 export async function removeRegistrationByManagerVoidAction(matchId: string, userId: string, formData: FormData): Promise<void> {
