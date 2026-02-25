@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { logoutAction } from "@/app/auth/actions";
 import ProfileOverview from "@/components/auth/ProfileOverview";
 import { prisma } from "@/lib/prisma";
+import { toClubId } from "@/lib/club-id";
 
 export default async function ProfilePage() {
   const currentUser = await getCurrentUser();
@@ -104,6 +105,7 @@ export default async function ProfilePage() {
           wins: currentUser.wins,
           losses: currentUser.losses,
         }}
+        clubId={toClubId(currentUser.id)}
         eloPoints={eloHistory.map((item) => ({
           eloAfter: item.eloAfter,
           createdAt: item.createdAt.toISOString(),

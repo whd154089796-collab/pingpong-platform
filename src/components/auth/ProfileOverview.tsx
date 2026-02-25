@@ -46,6 +46,7 @@ type Props = {
     wins: number;
     losses: number;
   };
+  clubId: string;
   eloPoints: EloPoint[];
   recentResults: RecentResult[];
   badges: BadgeItem[];
@@ -53,11 +54,13 @@ type Props = {
 
 export default function ProfileOverview({
   user,
+  clubId,
   eloPoints,
   recentResults,
   badges,
 }: Props) {
   const [xAxisMode, setXAxisMode] = useState<"date" | "nth">("date");
+  const [copied, setCopied] = useState(false);
 
   const chartData = useMemo(
     () =>
@@ -93,6 +96,26 @@ export default function ProfileOverview({
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">{user.nickname}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-md border border-cyan-400/35 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold tracking-wider text-cyan-100">
+                Club ID: {clubId}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(clubId);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1200);
+                  } catch {
+                    setCopied(false);
+                  }
+                }}
+                className="rounded-md border border-slate-600 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800"
+              >
+                {copied ? "已复制" : "复制"}
+              </button>
+            </div>
             <p className="mt-1 max-w-xl text-sm text-slate-300">
               {user.bio || "这个人很神秘，还没有留下个人描述。"}
             </p>

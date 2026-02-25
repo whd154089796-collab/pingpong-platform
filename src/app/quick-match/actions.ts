@@ -12,6 +12,8 @@ export type QuickMatchFormState = {
 
 const QUICK_MATCH_TITLE_PREFIX = '[快速比赛]'
 const QUICK_MATCH_TIMEOUT_MS = 24 * 60 * 60 * 1000
+const QUICK_MATCH_ACTIVE_DESC = '由快速比赛功能创建'
+const QUICK_MATCH_VOID_DESC = '由快速比赛功能创建（已作废）'
 
 function isQuickMatchTitle(title: string) {
   return title.startsWith(QUICK_MATCH_TITLE_PREFIX)
@@ -21,10 +23,43 @@ function isExpired(createdAt: Date) {
   return Date.now() - createdAt.getTime() > QUICK_MATCH_TIMEOUT_MS
 }
 
-async function deleteQuickResultAndMatch(resultId: string, matchId: string) {
+function normalizeScore(score: unknown) {
+  if (typeof score === 'string') {
+    return { text: score }
+  }
+
+  if (score && typeof score === 'object') {
+    return score as Record<string, unknown>
+  }
+
+  return {}
+}
+
+async function invalidateQuickResult(params: {
+  resultId: string
+  matchId: string
+  existingScore: unknown
+  reason: 'rejected' | 'timeout'
+}) {
+  const baseScore = normalizeScore(params.existingScore)
+
   await prisma.$transaction([
-    prisma.matchResult.delete({ where: { id: resultId } }),
-    prisma.match.delete({ where: { id: matchId } }),
+    prisma.matchResult.update({
+      where: { id: params.resultId },
+      data: {
+        score: {
+          ...baseScore,
+          invalidatedAt: new Date().toISOString(),
+          invalidReason: params.reason,
+        },
+      },
+    }),
+    prisma.match.update({
+      where: { id: params.matchId },
+      data: {
+        description: QUICK_MATCH_VOID_DESC,
+      },
+    }),
   ])
 }
 
@@ -74,7 +109,7 @@ export async function reportQuickMatchResultAction(
     const createdMatch = await tx.match.create({
       data: {
         title: `${QUICK_MATCH_TITLE_PREFIX} ${currentUser.nickname} vs ${opponent.nickname}`,
-        description: '由快速比赛功能创建',
+        description: QUICK_MATCH_ACTIVE_DESC,
         type: 'single',
         format: 'group_only',
         status: 'finished',
@@ -146,7 +181,12 @@ export async function confirmQuickMatchResultAction(
   }
 
   if (isExpired(result.createdAt)) {
-    await deleteQuickResultAndMatch(result.id, result.matchId)
+    await invalidateQuickResult({
+      resultId: result.id,
+      matchId: result.matchId,
+      existingScore: result.score,
+      reason: 'timeout',
+    })
     revalidatePath('/quick-match')
     return { error: '该赛果已超过 24 小时未确认，已作废。' }
   }
@@ -201,7 +241,12 @@ export async function rejectQuickMatchResultAction(
     return { error: '仅对手或管理员可拒绝。' }
   }
 
-  await deleteQuickResultAndMatch(result.id, result.matchId)
+  await invalidateQuickResult({
+    resultId: result.id,
+    matchId: result.matchId,
+    existingScore: result.score,
+    reason: 'rejected',
+  })
 
   revalidatePath('/quick-match')
   return { success: '已拒绝该赛果，结果已作废。' }
@@ -216,18 +261,31 @@ export async function cleanupExpiredQuickResultsForUser(userId: string) {
       },
       OR: [{ winnerTeamIds: { has: userId } }, { loserTeamIds: { has: userId } }],
       match: {
-        title: {
-          startsWith: QUICK_MATCH_TITLE_PREFIX,
-        },
+        AND: [
+          {
+            title: {
+              startsWith: QUICK_MATCH_TITLE_PREFIX,
+            },
+          },
+          {
+            description: QUICK_MATCH_ACTIVE_DESC,
+          },
+        ],
       },
     },
     select: {
       id: true,
       matchId: true,
+      score: true,
     },
   })
 
   for (const item of expired) {
-    await deleteQuickResultAndMatch(item.id, item.matchId)
+    await invalidateQuickResult({
+      resultId: item.id,
+      matchId: item.matchId,
+      existingScore: item.score,
+      reason: 'timeout',
+    })
   }
 }

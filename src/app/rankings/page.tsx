@@ -79,13 +79,15 @@ export default async function RankingsPage({
     );
   });
 
-  const displayRanks = buildDisplayRanks(tab, sorted);
+  const topTen = sorted.slice(0, 10);
+
+  const displayRanks = buildDisplayRanks(tab, topTen);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <div className="flex items-center gap-3">
         <Trophy className="h-8 w-8 text-yellow-400" />
-        <h1 className="text-3xl font-bold text-white">排行榜</h1>
+        <h1 className="text-3xl font-bold text-white">排行榜（前十）</h1>
       </div>
 
       <div className="flex gap-2 border-b border-gray-600">
@@ -122,7 +124,7 @@ export default async function RankingsPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-600">
-            {sorted.map((player, index) => {
+            {topTen.map((player, index) => {
               const total = player.matchesPlayed;
               const winRate =
                 total > 0 ? Math.round((player.wins / total) * 100) : 0;

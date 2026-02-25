@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   confirmQuickMatchResultAction,
   rejectQuickMatchResultAction,
@@ -18,6 +18,7 @@ type OpponentOption = {
   id: string;
   nickname: string;
   email: string;
+  clubId: string;
 };
 
 type PendingItem = {
@@ -30,6 +31,16 @@ type PendingItem = {
   createdAtText: string;
   expiresAtText: string;
   canReview: boolean;
+};
+
+type HistoryItem = {
+  id: string;
+  winnerNickname: string;
+  loserNickname: string;
+  reportedByNickname: string;
+  scoreText: string;
+  statusLabel: string;
+  createdAtText: string;
 };
 
 function ConfirmQuickButton({ resultId }: { resultId: string }) {
@@ -84,19 +95,39 @@ function RejectQuickButton({ resultId }: { resultId: string }) {
 
 export default function QuickMatchPanel({
   currentUserId,
+  currentUserClubId,
   opponents,
   pendingItems,
+  historyItems,
+  historyDays,
   timeoutHours,
 }: {
   currentUserId: string;
+  currentUserClubId: string;
   opponents: OpponentOption[];
   pendingItems: PendingItem[];
+  historyItems: HistoryItem[];
+  historyDays: number;
   timeoutHours: number;
 }) {
+  const [opponentQuery, setOpponentQuery] = useState("");
   const [state, formAction, pending] = useActionState(
     reportQuickMatchResultAction,
     initialState,
   );
+
+  const filteredOpponents = useMemo(() => {
+    const query = opponentQuery.trim().toLowerCase();
+    if (!query) return opponents;
+
+    return opponents.filter((opponent) => {
+      return (
+        opponent.nickname.toLowerCase().includes(query) ||
+        opponent.email.toLowerCase().includes(query) ||
+        opponent.clubId.toLowerCase().includes(query)
+      );
+    });
+  }, [opponentQuery, opponents]);
 
   return (
     <div className="space-y-6">
@@ -111,6 +142,23 @@ export default function QuickMatchPanel({
           <input type="hidden" name="csrfToken" defaultValue="" />
 
           <label className="block space-y-1 text-sm text-slate-300">
+            <span>搜索对手（昵称 / 邮箱 / Club ID）</span>
+            <input
+              value={opponentQuery}
+              onChange={(event) => setOpponentQuery(event.target.value)}
+              placeholder="例如：CLUB-123456"
+              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+            />
+          </label>
+
+          <p className="text-xs text-slate-400">
+            你的 Club ID：
+            <span className="ml-1 font-semibold tracking-wide text-cyan-200">
+              {currentUserClubId}
+            </span>
+          </p>
+
+          <label className="block space-y-1 text-sm text-slate-300">
             <span>对手</span>
             <select
               name="opponentId"
@@ -118,9 +166,9 @@ export default function QuickMatchPanel({
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
             >
               <option value="">请选择</option>
-              {opponents.map((opponent) => (
+              {filteredOpponents.map((opponent) => (
                 <option key={opponent.id} value={opponent.id}>
-                  {opponent.nickname}（{opponent.email}）
+                  {opponent.nickname}（{opponent.clubId}）
                 </option>
               ))}
             </select>
@@ -134,9 +182,9 @@ export default function QuickMatchPanel({
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
             >
               <option value={currentUserId}>我获胜</option>
-              {opponents.map((opponent) => (
+              {filteredOpponents.map((opponent) => (
                 <option key={`winner-${opponent.id}`} value={opponent.id}>
-                  {opponent.nickname} 获胜
+                  {opponent.nickname}（{opponent.clubId}）获胜
                 </option>
               ))}
             </select>
@@ -204,6 +252,38 @@ export default function QuickMatchPanel({
                 ) : (
                   <p className="mt-2 text-xs text-amber-300">等待对手确认</p>
                 )}
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+        <h2 className="text-lg font-semibold text-white">
+          最近 {historyDays} 天历史
+        </h2>
+        <p className="mt-1 text-sm text-slate-300">
+          展示已确认和已作废的快速比赛结果。
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {historyItems.length === 0 ? (
+            <p className="text-sm text-slate-400">最近暂无历史记录。</p>
+          ) : (
+            historyItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-slate-700 bg-slate-800/60 p-4"
+              >
+                <p className="text-sm text-slate-100">
+                  {item.winnerNickname} 胜 {item.loserNickname}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  登记人：{item.reportedByNickname} · 比分：{item.scoreText}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  时间：{item.createdAtText} · 状态：{item.statusLabel}
+                </p>
               </div>
             ))
           )}
