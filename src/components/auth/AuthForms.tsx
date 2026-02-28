@@ -2,10 +2,10 @@
 
 import { useActionState, useState } from "react";
 import {
+  accountHelpAction,
   type AuthFormState,
   loginAction,
   registerAction,
-  resendVerifyEmailAction,
 } from "@/app/auth/actions";
 
 const initialState: AuthFormState = {};
@@ -20,10 +20,11 @@ export default function AuthForms() {
     registerAction,
     initialState,
   );
-  const [resendState, resendFormAction, resendPending] = useActionState(
-    resendVerifyEmailAction,
+  const [helpState, helpFormAction, helpPending] = useActionState(
+    accountHelpAction,
     initialState,
   );
+  const [helpOpen, setHelpOpen] = useState(false);
 
   return (
     <div className="w-full rounded-2xl border border-slate-700/70 bg-slate-900/75 p-6 shadow-xl shadow-black/20">
@@ -90,41 +91,15 @@ export default function AuthForms() {
             </button>
           </form>
 
-          <form
-            action={resendFormAction}
-            className="mt-4 space-y-3 rounded-xl border border-slate-700 bg-slate-800/60 p-4"
-          >
-            <input type="hidden" name="csrfToken" defaultValue="" />
-            <p className="text-xs text-slate-300">
-              未收到验证邮件？填写邮箱和密码后可重发验证链接。
-            </p>
-            <input
-              name="email"
-              type="email"
-              title="重发验证邮件邮箱"
-              placeholder="邮箱"
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 focus:ring"
-            />
-            <input
-              name="password"
-              type="password"
-              title="重发验证邮件密码"
-              placeholder="密码"
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 focus:ring"
-            />
-            {resendState.error && (
-              <p className="text-sm text-rose-300">{resendState.error}</p>
-            )}
-            {resendState.success && (
-              <p className="text-sm text-emerald-300">{resendState.success}</p>
-            )}
+          <div className="mt-4">
             <button
-              disabled={resendPending}
-              className="w-full rounded-lg border border-cyan-300/40 px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-500/10 disabled:opacity-60"
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="text-xs text-cyan-200 underline-offset-4 hover:underline"
             >
-              {resendPending ? "发送中..." : "重发验证邮件"}
+              忘记密码或未收到验证邮件？点击打开
             </button>
-          </form>
+          </div>
         </>
       ) : (
         <form action={registerFormAction} className="space-y-4">
@@ -188,6 +163,51 @@ export default function AuthForms() {
             {registerPending ? "注册中..." : "注册并发送验证邮件"}
           </button>
         </form>
+      )}
+
+      {helpOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-white">账号帮助</h3>
+            <p className="mt-1 text-xs text-slate-300">
+              输入邮箱后，系统会自动发送验证邮件或重置密码链接。
+            </p>
+
+            <form action={helpFormAction} className="mt-4 space-y-3">
+              <input type="hidden" name="csrfToken" defaultValue="" />
+              <input
+                name="email"
+                type="email"
+                title="账号帮助邮箱"
+                placeholder="请输入注册邮箱"
+                className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 focus:ring"
+              />
+
+              {helpState.error && (
+                <p className="text-sm text-rose-300">{helpState.error}</p>
+              )}
+              {helpState.success && (
+                <p className="text-sm text-emerald-300">{helpState.success}</p>
+              )}
+
+              <div className="mt-1 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(false)}
+                  className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  关闭
+                </button>
+                <button
+                  disabled={helpPending}
+                  className="rounded-lg border border-cyan-300/40 px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-500/10 disabled:opacity-60"
+                >
+                  {helpPending ? "发送中..." : "发送邮件"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

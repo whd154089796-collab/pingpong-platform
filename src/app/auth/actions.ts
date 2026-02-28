@@ -16,6 +16,7 @@ import {
 } from '@/lib/session'
 
 const EMAIL_VERIFY_TTL_MS = 1000 * 60 * 30
+const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30
 
 export type AuthFormState = {
   error?: string
@@ -106,10 +107,53 @@ async function sendVerificationEmail(email: string, nickname: string, token: str
   }
 }
 
-async function issueVerificationEmail(userId: string, email: string, nickname: string) {
+async function sendPasswordResetEmail(email: string, nickname: string, token: string) {
+  const resendApiKey = process.env.RESEND_API_KEY
+  const from = process.env.RESEND_FROM_EMAIL
+
+  if (!resendApiKey || !from) {
+    throw new Error('邮件服务未配置：请设置 RESEND_API_KEY 与 RESEND_FROM_EMAIL')
+  }
+
+  const resetUrl = `${getBaseUrl()}/auth/reset-password?token=${encodeURIComponent(token)}`
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: 'USTC TTA 重置密码',
+      html: `
+        <div style="font-family: Arial, sans-serif;line-height:1.7;">
+          <h2>你好，${nickname}</h2>
+          <p>我们收到了你的重置密码请求，请点击下方按钮继续：</p>
+          <p><a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#06b6d4;color:#fff;text-decoration:none;border-radius:8px;">前往重置密码</a></p>
+          <p>如果按钮不可用，请复制以下链接到浏览器打开：</p>
+          <p>${resetUrl}</p>
+          <p>此链接 30 分钟内有效。</p>
+        </div>
+      `,
+    }),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text()
+    console.error('sendPasswordResetEmail failed', {
+      status: response.status,
+      detail,
+    })
+    throw new Error('重置密码邮件发送失败，请稍后重试。')
+  }
+}
+
+async function createEmailToken(userId: string, ttlMs: number) {
   const rawToken = randomBytes(32).toString('hex')
   const tokenHash = hashToken(rawToken)
-  const expiresAt = new Date(Date.now() + EMAIL_VERIFY_TTL_MS)
+  const expiresAt = new Date(Date.now() + ttlMs)
 
   await prisma.emailVerificationToken.create({
     data: {
@@ -119,7 +163,19 @@ async function issueVerificationEmail(userId: string, email: string, nickname: s
     },
   })
 
+  return rawToken
+}
+
+async function issueVerificationEmail(userId: string, email: string, nickname: string) {
+  const rawToken = await createEmailToken(userId, EMAIL_VERIFY_TTL_MS)
+
   await sendVerificationEmail(email, nickname, rawToken)
+}
+
+async function issuePasswordResetEmail(userId: string, email: string, nickname: string) {
+  await prisma.emailVerificationToken.deleteMany({ where: { userId, consumedAt: null } })
+  const rawToken = await createEmailToken(userId, PASSWORD_RESET_TTL_MS)
+  await sendPasswordResetEmail(email, nickname, rawToken)
 }
 
 export async function registerAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -298,6 +354,91 @@ export async function resendVerifyEmailAction(_: AuthFormState, formData: FormDa
   }
 
   return { success: '验证邮件已重发，请检查收件箱。' }
+}
+
+export async function accountHelpAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  if (!email) {
+    return { error: '请输入邮箱。' }
+  }
+
+  const rateLimited = await checkAuthRateLimit('resend', email)
+  if (rateLimited) {
+    return { error: rateLimited }
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) {
+    return { success: '如果该邮箱已注册，我们会向该邮箱发送后续操作邮件。' }
+  }
+
+  try {
+    if (!user.emailVerifiedAt) {
+      await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id, consumedAt: null } })
+      await issueVerificationEmail(user.id, user.email, user.nickname)
+      return { success: '验证邮件已发送，请检查收件箱。' }
+    }
+
+    if (!user.hashedPassword) {
+      return { error: '该账号未启用密码登录，请联系管理员处理。' }
+    }
+
+    await issuePasswordResetEmail(user.id, user.email, user.nickname)
+    return { success: '重置密码邮件已发送，请检查收件箱。' }
+  } catch (error) {
+    console.error('accountHelpAction failed', error)
+    return { error: '邮件发送失败，请稍后重试。' }
+  }
+}
+
+export async function resetPasswordAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const csrfError = await validateCsrfToken(formData)
+  if (csrfError) return { error: csrfError }
+
+  const token = String(formData.get('token') ?? '').trim()
+  const password = String(formData.get('password') ?? '')
+  const confirmPassword = String(formData.get('confirmPassword') ?? '')
+
+  if (!token) return { error: '重置链接无效，请重新申请。' }
+  if (!password || !confirmPassword) {
+    return { error: '请完整填写新密码与确认密码。' }
+  }
+  if (password.length < 6) {
+    return { error: '密码至少需要 6 位。' }
+  }
+  if (password !== confirmPassword) {
+    return { error: '两次输入的密码不一致。' }
+  }
+
+  const tokenHash = hashToken(token)
+  const record = await prisma.emailVerificationToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  })
+
+  if (!record || record.consumedAt || record.expiresAt.getTime() < Date.now()) {
+    return { error: '重置链接无效或已过期，请重新申请。' }
+  }
+
+  if (!record.user.emailVerifiedAt) {
+    return { error: '该账号邮箱尚未验证，请先完成邮箱验证。' }
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { hashedPassword: hashPassword(password) },
+    }),
+    prisma.emailVerificationToken.update({
+      where: { id: record.id },
+      data: { consumedAt: new Date() },
+    }),
+  ])
+
+  return { success: '密码重置成功，请返回登录页登录。' }
 }
 
 export async function verifyEmailTokenAction(token: string) {
