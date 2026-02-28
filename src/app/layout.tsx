@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
@@ -15,6 +15,12 @@ export const metadata: Metadata = {
     "科大校学生乒乓球协会平台，用于科大校内比赛的乒乓球竞技平台，记录每一次精彩对决，见证你的成长",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default async function RootLayout({
   children,
 }: {
@@ -23,14 +29,14 @@ export default async function RootLayout({
   const currentUser = await getCurrentUser();
 
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" className="overflow-x-hidden">
       <body
-        className={`${inter.className} min-h-screen bg-slate-950 text-slate-100`}
+        className={`${inter.className} min-h-screen overflow-x-hidden bg-slate-950 text-slate-100`}
       >
         <CsrfFormInjector />
-        <div className="flex min-h-screen">
+        <div className="min-h-screen min-w-0">
           <Sidebar />
-          <div className="flex min-h-screen flex-1 flex-col">
+          <div className="flex min-h-screen min-w-0 flex-col md:pl-72">
             <Header
               isLoggedIn={Boolean(currentUser)}
               currentUser={
@@ -39,11 +45,12 @@ export default async function RootLayout({
                       nickname: currentUser.nickname,
                       avatarUrl: currentUser.avatarUrl,
                       eloRating: currentUser.eloRating,
+                      role: currentUser.role,
                     }
                   : null
               }
             />
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-6 lg:px-8">
+            <main className="mx-auto w-full max-w-7xl min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8 lg:px-8">
               {children}
             </main>
             <Footer />

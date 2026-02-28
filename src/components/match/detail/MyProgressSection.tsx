@@ -482,8 +482,10 @@ export default function MyProgressSection({
   const knockoutStageLabel = currentKnockoutRoundName ?? "淘汰赛阶段";
 
   return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
-      <h2 className="mb-2 text-xl font-bold text-white">我的比赛进程</h2>
+    <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6 md:p-8">
+      <h2 className="mb-2 text-lg font-bold text-white sm:text-xl">
+        我的比赛进程
+      </h2>
       {!groupCompleted ? (
         <p className="mb-4 text-sm text-slate-400">
           当前进度：已完成 {completedCount}/{totalGroupMatches}{" "}

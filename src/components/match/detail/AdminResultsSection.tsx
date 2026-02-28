@@ -81,10 +81,10 @@ export default function AdminResultsSection({
   }> | null;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
+    <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6 md:p-8">
       {matchType === "single" ? (
         hasGroupingPayload ? (
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <AdminResultEntryForm
               matchId={matchId}
               players={registrations.map((item) => ({
@@ -121,7 +121,7 @@ export default function AdminResultsSection({
       )}
 
       <h2 className="mb-2 text-xl font-bold text-white">管理员待确认赛果</h2>
-      <p className="mb-4 text-sm text-slate-400">
+      <p className="mb-3 text-xs text-slate-400 sm:mb-4 sm:text-sm">
         可在此查看并确认本比赛全部待确认赛果。
       </p>
       <div className="space-y-3">

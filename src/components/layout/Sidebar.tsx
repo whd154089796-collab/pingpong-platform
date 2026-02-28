@@ -45,8 +45,8 @@ export default async function Sidebar() {
   ).toUpperCase();
 
   return (
-    <aside className="hidden lg:flex lg:w-72 lg:shrink-0">
-      <div className="sticky top-0 h-screen w-full border-r border-slate-700/70 bg-slate-900/90 px-5 py-6 backdrop-blur-xl">
+    <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:z-30 md:flex md:w-72 md:flex-col">
+      <div className="h-screen w-full overflow-y-auto border-r border-slate-700/70 bg-slate-900/90 px-5 py-6 backdrop-blur-xl">
         <section className="rounded-2xl border border-slate-700/70 bg-slate-950/20 p-4">
           {currentUser ? (
             <Link

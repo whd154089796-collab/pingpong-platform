@@ -106,6 +106,13 @@ export default function KnockoutBracket({
   const [dragging, setDragging] = useState(false);
   const dragOriginRef = useRef({ x: 0, y: 0 });
   const offsetOriginRef = useRef({ x: 0, y: 0 });
+  const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchStartRef = useRef<{
+    distance: number;
+    scale: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
 
   const scene = useMemo(() => {
     if (rounds.length === 0) return null;
@@ -216,7 +223,7 @@ export default function KnockoutBracket({
     const viewportH = viewport.clientHeight;
     const contentW = scene.width * nextScale;
     const contentH = scene.height * nextScale;
-    const pad = 80;
+    const pad = viewportW < 640 ? 36 : 80;
 
     const clampAxis = (
       value: number,
@@ -237,6 +244,19 @@ export default function KnockoutBracket({
     };
   };
 
+  const getPointerDistance = (
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  const getPointerMidpoint = (
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+  ) => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  });
+
   const getMinScale = () => {
     if (!scene) return ABSOLUTE_MIN_SCALE;
     const viewport = viewportRef.current;
@@ -245,8 +265,9 @@ export default function KnockoutBracket({
     const fitWidth = viewport.clientWidth / scene.width;
     const fitHeight = viewport.clientHeight / scene.height;
     const fitScale = Math.min(fitWidth, fitHeight);
+    const fitFactor = viewport.clientWidth < 640 ? 0.62 : 0.4;
 
-    return Math.max(ABSOLUTE_MIN_SCALE, Math.min(1, fitScale * 0.4));
+    return Math.max(ABSOLUTE_MIN_SCALE, Math.min(1, fitScale * fitFactor));
   };
 
   useEffect(() => {
@@ -517,17 +538,14 @@ export default function KnockoutBracket({
   if (!scene) return null;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">
-          支持拖拽平移与缩放（Ctrl+滚轮缩放）
-        </p>
-        <div className="flex items-center gap-2">
+    <div className="space-y-2 sm:space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {selectedMatchId ? (
             <button
               type="button"
               onClick={() => focusMatchById(selectedMatchId)}
-              className="rounded border border-amber-500/50 px-2 py-1 text-xs text-amber-200"
+              className="rounded border border-amber-500/50 px-2 py-1 text-[11px] text-amber-200 sm:text-xs"
             >
               定位到所选对局
             </button>
@@ -536,24 +554,24 @@ export default function KnockoutBracket({
             type="button"
             onClick={locateToSelf}
             disabled={!currentUserId && !currentUserNickname}
-            className="rounded border border-amber-500/50 px-2 py-1 text-xs text-amber-200 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500"
+            className="rounded border border-amber-500/50 px-2 py-1 text-[11px] text-amber-200 disabled:cursor-not-allowed disabled:border-slate-700 disabled:text-slate-500 sm:text-xs"
           >
             定位到我
           </button>
           <button
             type="button"
             onClick={() => zoomTo(scale - 0.1)}
-            className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200"
+            className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200 sm:text-xs"
           >
             -
           </button>
-          <span className="text-xs text-slate-300">
+          <span className="min-w-10 text-center text-[11px] text-slate-300 sm:text-xs">
             {Math.round(scale * 100)}%
           </span>
           <button
             type="button"
             onClick={() => zoomTo(scale + 0.1)}
-            className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200"
+            className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200 sm:text-xs"
           >
             +
           </button>
@@ -563,7 +581,7 @@ export default function KnockoutBracket({
               setScale(1);
               setOffset(clampOffset({ x: 0, y: 0 }, 1));
             }}
-            className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200"
+            className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200 sm:text-xs"
           >
             重置
           </button>
@@ -572,7 +590,7 @@ export default function KnockoutBracket({
 
       <div
         ref={viewportRef}
-        className="relative h-[70vh] overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70"
+        className="relative h-[58dvh] min-h-[340px] touch-none overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70 sm:h-[70vh]"
         onWheel={(event) => {
           if (event.ctrlKey || event.metaKey) {
             event.preventDefault();
@@ -587,12 +605,69 @@ export default function KnockoutBracket({
           ) {
             return;
           }
-          setDragging(true);
+          activePointersRef.current.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+          });
           event.currentTarget.setPointerCapture(event.pointerId);
+
+          const pointers = Array.from(activePointersRef.current.values());
+          if (pointers.length >= 2) {
+            const first = pointers[0];
+            const second = pointers[1];
+            const midpoint = getPointerMidpoint(first, second);
+            const distance = getPointerDistance(first, second);
+            if (distance > 0) {
+              pinchStartRef.current = {
+                distance,
+                scale,
+                contentX: (midpoint.x - offset.x) / scale,
+                contentY: (midpoint.y - offset.y) / scale,
+              };
+            }
+            setDragging(false);
+            return;
+          }
+
+          pinchStartRef.current = null;
+          setDragging(true);
           dragOriginRef.current = { x: event.clientX, y: event.clientY };
           offsetOriginRef.current = offset;
         }}
         onPointerMove={(event) => {
+          if (activePointersRef.current.has(event.pointerId)) {
+            activePointersRef.current.set(event.pointerId, {
+              x: event.clientX,
+              y: event.clientY,
+            });
+          }
+
+          const pointers = Array.from(activePointersRef.current.values());
+          if (pointers.length >= 2 && pinchStartRef.current) {
+            const first = pointers[0];
+            const second = pointers[1];
+            const midpoint = getPointerMidpoint(first, second);
+            const distance = getPointerDistance(first, second);
+            if (distance > 0 && pinchStartRef.current.distance > 0) {
+              const minScale = getMinScale();
+              const ratio = distance / pinchStartRef.current.distance;
+              const nextScale = Math.max(
+                minScale,
+                Math.min(
+                  ABSOLUTE_MAX_SCALE,
+                  pinchStartRef.current.scale * ratio,
+                ),
+              );
+              const nextOffset = {
+                x: midpoint.x - pinchStartRef.current.contentX * nextScale,
+                y: midpoint.y - pinchStartRef.current.contentY * nextScale,
+              };
+              setScale(nextScale);
+              setOffset(clampOffset(nextOffset, nextScale));
+            }
+            return;
+          }
+
           if (!dragging) return;
           const dx = event.clientX - dragOriginRef.current.x;
           const dy = event.clientY - dragOriginRef.current.y;
@@ -603,9 +678,32 @@ export default function KnockoutBracket({
             }),
           );
         }}
-        onPointerUp={() => setDragging(false)}
-        onPointerCancel={() => setDragging(false)}
-        onPointerLeave={() => setDragging(false)}
+        onPointerUp={(event) => {
+          activePointersRef.current.delete(event.pointerId);
+          pinchStartRef.current = null;
+          const pointers = Array.from(activePointersRef.current.values());
+          if (pointers.length === 1) {
+            setDragging(true);
+            dragOriginRef.current = { x: pointers[0].x, y: pointers[0].y };
+            offsetOriginRef.current = offset;
+            return;
+          }
+          setDragging(false);
+        }}
+        onPointerCancel={(event) => {
+          activePointersRef.current.delete(event.pointerId);
+          pinchStartRef.current = null;
+          if (activePointersRef.current.size < 2) {
+            setDragging(false);
+          }
+        }}
+        onPointerLeave={(event) => {
+          activePointersRef.current.delete(event.pointerId);
+          if (activePointersRef.current.size === 0) {
+            pinchStartRef.current = null;
+            setDragging(false);
+          }
+        }}
       >
         <svg
           width={scene.width}

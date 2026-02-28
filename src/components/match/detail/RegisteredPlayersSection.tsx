@@ -58,13 +58,13 @@ export default function RegisteredPlayersSection({
   return (
     <details
       id="registered-players"
-      className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6"
+      className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6"
       open={shouldOpenParticipants}
     >
-      <summary className="cursor-pointer list-none text-xl font-bold text-white marker:hidden">
+      <summary className="cursor-pointer list-none text-lg font-bold text-white marker:hidden sm:text-xl">
         <span className="inline-flex items-center gap-2">
           {isDouble ? "已报名小队" : "已报名选手"}（{totalDisplayCount}）
-          <span className="text-sm font-normal text-slate-400">
+          <span className="text-xs font-normal text-slate-400 sm:text-sm">
             点击展开/收起
           </span>
         </span>

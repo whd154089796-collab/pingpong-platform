@@ -10,22 +10,28 @@ type Props = {
     nickname: string;
     avatarUrl: string | null;
     eloRating: number;
+    role: string;
   } | null;
 };
-
-const mobileNav = [
-  { href: "/", label: "首页" },
-  { href: "/matchs", label: "比赛大厅" },
-  { href: "/matchs/create", label: "发布比赛" },
-  { href: "/rankings", label: "排行榜" },
-  { href: "/profile", label: "个人中心" },
-];
 
 export default function Header({ isLoggedIn, currentUser }: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const avatarFallback = (
     currentUser?.nickname?.trim()?.[0] ?? "?"
   ).toUpperCase();
+  const mobileNav = [
+    { href: "/", label: "首页" },
+    { href: "/matchs", label: "比赛大厅" },
+    { href: "/rankings", label: "排行榜" },
+    ...(isLoggedIn ? [{ href: "/quick-match", label: "快速比赛" }] : []),
+    ...(isLoggedIn ? [{ href: "/team-invites", label: "组队信息" }] : []),
+    ...(currentUser?.role === "admin"
+      ? [{ href: "/matchs/create", label: "发布比赛" }]
+      : []),
+    ...(currentUser?.role === "admin"
+      ? [{ href: "/admin", label: "管理员控制台" }]
+      : []),
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-700/70 bg-slate-900/90 backdrop-blur-xl lg:hidden">
@@ -97,14 +103,6 @@ export default function Header({ isLoggedIn, currentUser }: Props) {
                 {item.label}
               </Link>
             ))}
-            <a
-              href="/25周年徽章.pdf"
-              target="_blank"
-              rel="noreferrer"
-              className="block rounded-lg border border-amber-300/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
-            >
-              查看 25 周年徽章
-            </a>
           </div>
         )}
       </nav>

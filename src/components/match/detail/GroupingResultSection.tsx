@@ -65,9 +65,11 @@ export default function GroupingResultSection({
   return (
     <div
       id="grouping"
-      className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8"
+      className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6 md:p-8"
     >
-      <h2 className="mb-4 text-xl font-bold text-white">分组结果</h2>
+      <h2 className="mb-3 text-lg font-bold text-white sm:mb-4 sm:text-xl">
+        分组结果
+      </h2>
       {!groupingPayload ? (
         <p className="text-slate-400">
           报名截止后由发起人或管理员手动生成并确认分组结果。

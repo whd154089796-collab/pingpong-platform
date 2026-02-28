@@ -145,18 +145,18 @@ export default async function Home() {
   const sparkPath = buildSparkline(eloSeries);
 
   return (
-    <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-700/70 bg-linear-to-br from-slate-800 via-slate-800 to-slate-900 p-8 shadow-xl shadow-black/20 md:p-10">
+    <div className="space-y-6 sm:space-y-8 md:space-y-10">
+      <section className="relative overflow-hidden rounded-2xl border border-slate-700/70 bg-linear-to-br from-slate-800 via-slate-800 to-slate-900 p-4 shadow-xl shadow-black/20 sm:rounded-3xl sm:p-6 md:p-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_48%)]" />
-        <div className="relative space-y-8">
-          <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-5 md:p-6">
-            <div className="grid gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
+        <div className="relative space-y-4 sm:space-y-6 md:space-y-8">
+          <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-3 sm:p-5 md:p-6">
+            <div className="grid gap-3 sm:gap-4 lg:grid-cols-[auto_1fr] lg:items-center">
               <Image
                 src="/SVG/乒协徽章.svg"
                 alt="中国科学技术大学校乒乓球协会徽章"
                 width={120}
                 height={120}
-                className="h-20 w-20 md:h-40 md:w-40 object-contain"
+                className="mx-auto h-14 w-14 object-contain sm:h-20 sm:w-20 md:h-40 md:w-40 lg:mx-0"
               />
 
               <div>
@@ -167,7 +167,7 @@ export default async function Home() {
                   height={72}
                   className="block w-full h-auto"
                 />
-                <p className="mt-4 max-w-4xl text-slate-300">
+                <p className="mt-2 max-w-4xl text-sm text-slate-300 sm:mt-4 sm:text-base">
                   <span className="font-medium">
                     协会赛事与成员成长平台：统一管理比赛发布、报名编排、结果上报与排名更新，让每一位选手都拥有清晰可追踪的参赛记录。
                   </span>
@@ -177,10 +177,10 @@ export default async function Home() {
           </div>
 
           {currentUser ? (
-            <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-5">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-20 w-20 overflow-hidden rounded-full border border-slate-600 bg-slate-800">
+            <div className="rounded-2xl border border-cyan-400/30 bg-slate-900/60 p-3 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                  <div className="h-14 w-14 overflow-hidden rounded-full border border-slate-600 bg-slate-800 sm:h-20 sm:w-20">
                     {currentUser.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -189,20 +189,20 @@ export default async function Home() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="grid h-full w-full place-items-center text-2xl font-semibold text-slate-200">
+                      <div className="grid h-full w-full place-items-center text-lg font-semibold text-slate-200 sm:text-2xl">
                         {currentUser.nickname[0]?.toUpperCase() ?? "?"}
                       </div>
                     )}
                   </div>
 
-                  <div>
-                    <p className="text-xs tracking-[0.2em] text-cyan-300">
+                  <div className="min-w-0">
+                    <p className="text-[10px] tracking-[0.12em] text-cyan-300 sm:text-xs sm:tracking-[0.2em]">
                       我的数据总览
                     </p>
-                    <h2 className="mt-1 text-2xl font-bold text-white">
+                    <h2 className="mt-0.5 truncate text-lg font-bold text-white sm:mt-1 sm:text-2xl">
                       {currentUser.nickname}
                     </h2>
-                    <p className="mt-1 text-sm text-slate-300">
+                    <p className="mt-0.5 text-xs text-slate-300 sm:mt-1 sm:text-sm">
                       本周 ELO 变化：
                       <span
                         className={
@@ -215,29 +215,33 @@ export default async function Home() {
                     </p>
                   </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-center">
-                    <p className="text-xs text-slate-400">ELO</p>
-                    <p className="mt-1 text-xl font-bold text-cyan-100">
+                <div className="grid w-full grid-cols-3 gap-2 sm:w-auto sm:gap-3">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-2 py-2 text-center sm:px-4 sm:py-3">
+                    <p className="text-[10px] text-slate-400 sm:text-xs">ELO</p>
+                    <p className="mt-1 text-base font-bold text-cyan-100 sm:text-xl">
                       {currentUser.eloRating}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-center">
-                    <p className="text-xs text-slate-400">积分</p>
-                    <p className="mt-1 text-xl font-bold text-cyan-100">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-2 py-2 text-center sm:px-4 sm:py-3">
+                    <p className="text-[10px] text-slate-400 sm:text-xs">
+                      积分
+                    </p>
+                    <p className="mt-1 text-base font-bold text-cyan-100 sm:text-xl">
                       {currentUser.points}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-3 text-center">
-                    <p className="text-xs text-slate-400">战绩</p>
-                    <p className="mt-1 text-xl font-bold text-cyan-100">
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 px-2 py-2 text-center sm:px-4 sm:py-3">
+                    <p className="text-[10px] text-slate-400 sm:text-xs">
+                      战绩
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-cyan-100 sm:text-xl">
                       {currentUser.wins} / {currentUser.losses}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/70 p-3">
+              <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900/70 p-2.5 sm:mt-4 sm:p-3">
                 <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
                   <span className="inline-flex items-center gap-1">
                     <TrendingUp className="h-3.5 w-3.5" />
@@ -251,7 +255,7 @@ export default async function Home() {
                 </div>
                 <svg
                   viewBox="0 0 360 88"
-                  className="h-24 w-full"
+                  className="h-20 w-full sm:h-24"
                   role="img"
                   aria-label="最近 ELO 走势"
                 >
@@ -274,7 +278,7 @@ export default async function Home() {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-5 text-sm text-slate-300">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-300 sm:p-5">
               当前处于待登录状态。登录后可查看你的 ELO
               走势、报名进度和个人比赛阶段。
               <Link
@@ -290,8 +294,10 @@ export default async function Home() {
 
       {currentUser && (
         <section>
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white">我报名的比赛</h2>
+          <div className="mb-3 flex items-center justify-between sm:mb-5">
+            <h2 className="text-xl font-bold text-white sm:text-2xl">
+              我报名的比赛
+            </h2>
             <Link
               href="/matchs"
               className="text-sm text-cyan-300 hover:text-cyan-200"
@@ -301,7 +307,7 @@ export default async function Home() {
           </div>
 
           {myRegistrations.length === 0 ? (
-            <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center text-slate-300">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5 text-center text-sm text-slate-300 sm:p-8 sm:text-base">
               你还没有报名比赛。
             </div>
           ) : (
@@ -323,21 +329,21 @@ export default async function Home() {
                   <Link
                     key={registration.id}
                     href={`/matchs/${registration.match.id}`}
-                    className="rounded-2xl border border-slate-700 bg-slate-800/80 p-5 text-slate-100 transition hover:border-cyan-400/45"
+                    className="rounded-2xl border border-slate-700 bg-slate-800/80 p-4 text-slate-100 transition hover:border-cyan-400/45 sm:p-5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-lg font-semibold">
+                      <h3 className="text-base font-semibold sm:text-lg">
                         {registration.match.title}
                       </h3>
                       <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 text-xs text-cyan-200">
                         {statusLabelMap[registration.match.status]}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-xs text-slate-400 sm:text-sm">
                       比赛时间：
                       {registration.match.dateTime.toLocaleString("zh-CN")}
                     </p>
-                    <p className="mt-3 text-sm text-slate-300">
+                    <p className="mt-2 text-xs text-slate-300 sm:mt-3 sm:text-sm">
                       当前阶段：
                       <span className="font-medium text-cyan-100">{phase}</span>
                     </p>
@@ -350,8 +356,8 @@ export default async function Home() {
       )}
 
       <section>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">近期比赛</h2>
+        <div className="mb-3 flex items-center justify-between sm:mb-5">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">近期比赛</h2>
           <Link
             href="/matchs"
             className="text-sm text-cyan-300 hover:text-cyan-200"
@@ -361,11 +367,11 @@ export default async function Home() {
         </div>
 
         {latestMatches.length === 0 ? (
-          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-8 text-center text-slate-300">
+          <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5 text-center text-sm text-slate-300 sm:p-8 sm:text-base">
             暂无比赛，快去发布第一场比赛吧。
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 2xl:grid-cols-3">
             {latestMatches.map((match) => (
               <MatchCard
                 key={match.id}

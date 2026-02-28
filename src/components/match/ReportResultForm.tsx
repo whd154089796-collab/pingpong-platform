@@ -40,7 +40,9 @@ function PendingResultConfirmButton({
       >
         {pending ? "确认中..." : "我确认该结果"}
       </button>
-      {state.error ? <p className="text-xs text-rose-300">{state.error}</p> : null}
+      {state.error ? (
+        <p className="text-xs text-rose-300">{state.error}</p>
+      ) : null}
       {state.success ? (
         <p className="text-xs text-emerald-300">{state.success}</p>
       ) : null}
@@ -95,13 +97,13 @@ export default function ReportResultForm({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <form
         action={submitAction}
-        className="space-y-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4"
+        className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/50 p-3 sm:space-y-4 sm:p-4"
       >
         <input type="hidden" name="csrfToken" defaultValue="" />
-        <p className="text-sm text-slate-300">
+        <p className="text-xs text-slate-300 sm:text-sm">
           {mode === "knockout"
             ? "当前为淘汰赛阶段，请登记本轮对局结果。提交后需由对手或管理员确认。"
             : "系统会根据你当前小组中尚未对战的对手自动筛选可登记对象。提交后需由对手或管理员确认。"}
@@ -110,52 +112,54 @@ export default function ReportResultForm({
           积分规则：报名 +1，单场胜利（确认后）+1；单人单赛事最多获得 5 分。
         </p>
 
-        {mode === "knockout" ? (
-          <label className="block space-y-1 text-sm text-slate-300">
-            <span>本轮对手</span>
-            <input
-              readOnly
-              value={knockoutOpponent?.nickname ?? "待定"}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
-            />
-            <input
-              type="hidden"
-              name="opponentId"
-              value={knockoutOpponent?.id ?? ""}
-            />
-          </label>
-        ) : (
-          <label className="block space-y-1 text-sm text-slate-300">
-            <span>选择对手</span>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          {mode === "knockout" ? (
+            <label className="block space-y-1 text-xs text-slate-300 sm:text-sm">
+              <span>本轮对手</span>
+              <input
+                readOnly
+                value={knockoutOpponent?.nickname ?? "待定"}
+                className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
+              />
+              <input
+                type="hidden"
+                name="opponentId"
+                value={knockoutOpponent?.id ?? ""}
+              />
+            </label>
+          ) : (
+            <label className="block space-y-1 text-xs text-slate-300 sm:text-sm">
+              <span>选择对手</span>
+              <select
+                name="opponentId"
+                required
+                className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
+              >
+                <option value="">请选择</option>
+                {unplayedOpponents.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nickname}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="block space-y-1 text-xs text-slate-300 sm:text-sm">
+            <span>本场结果</span>
             <select
-              name="opponentId"
-              required
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              name="didWin"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
             >
-              <option value="">请选择</option>
-              {unplayedOpponents.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nickname}
-                </option>
-              ))}
+              <option value="true">我获胜</option>
+              <option value="false">我失利</option>
             </select>
           </label>
-        )}
+        </div>
 
-        <label className="block space-y-1 text-sm text-slate-300">
-          <span>本场结果</span>
-          <select
-            name="didWin"
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
-          >
-            <option value="true">我获胜</option>
-            <option value="false">我失利</option>
-          </select>
-        </label>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <label className="block space-y-1 text-sm text-slate-300">
-            <span>局制（必选）</span>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <label className="block space-y-1 text-xs text-slate-300 sm:text-sm">
+            <span>局制</span>
             <select
               name="bestOf"
               required
@@ -163,7 +167,7 @@ export default function ReportResultForm({
               onChange={(event) =>
                 setBestOf(Number(event.target.value) as 3 | 5 | 7)
               }
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-sm text-slate-100"
             >
               <option value={3}>3局2胜</option>
               <option value={5}>5局3胜</option>
@@ -171,14 +175,14 @@ export default function ReportResultForm({
             </select>
           </label>
 
-          <label className="block space-y-1 text-sm text-slate-300">
-            <span>我方局分（必选）</span>
+          <label className="block space-y-1 text-xs text-slate-300 sm:text-sm">
+            <span>我方局分</span>
             <select
               name="myScore"
               required
               value={myScore}
               onChange={(event) => setMyScore(Number(event.target.value))}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-sm text-slate-100"
             >
               {scoreOptions.map((score) => (
                 <option key={`my-${bestOf}-${score}`} value={score}>
@@ -188,14 +192,14 @@ export default function ReportResultForm({
             </select>
           </label>
 
-          <label className="block space-y-1 text-sm text-slate-300">
-            <span>对手局分（必选）</span>
+          <label className="block space-y-1 text-xs text-slate-300 sm:text-sm">
+            <span>对手局分</span>
             <select
               name="opponentScore"
               required
               value={opponentScore}
               onChange={(event) => setOpponentScore(Number(event.target.value))}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-sm text-slate-100"
             >
               {scoreOptions.map((score) => (
                 <option key={`opp-${bestOf}-${score}`} value={score}>
@@ -221,7 +225,7 @@ export default function ReportResultForm({
               ? unplayedOpponents.length === 0
               : !knockoutOpponent?.id)
           }
-          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {submitPending
             ? "提交中..."
@@ -235,7 +239,7 @@ export default function ReportResultForm({
         </button>
       </form>
 
-      <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/40 p-4">
+      <div className="space-y-2.5 rounded-xl border border-slate-700 bg-slate-800/40 p-3 sm:space-y-3 sm:p-4">
         <h3 className="text-sm font-semibold text-slate-100">待确认赛果</h3>
         {pendingResults.length === 0 ? (
           <p className="text-sm text-slate-400">当前没有待确认赛果。</p>
@@ -255,7 +259,10 @@ export default function ReportResultForm({
               {item.reporterId === currentUserId ? (
                 <p className="mt-2 text-xs text-amber-300">等待对方确认中</p>
               ) : (
-                <PendingResultConfirmButton matchId={matchId} resultId={item.id} />
+                <PendingResultConfirmButton
+                  matchId={matchId}
+                  resultId={item.id}
+                />
               )}
             </div>
           ))

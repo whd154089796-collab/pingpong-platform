@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Calendar, PencilLine, ShieldCheck, Trophy } from "lucide-react";
 import {
@@ -61,6 +61,15 @@ export default function ProfileOverview({
 }: Props) {
   const [xAxisMode, setXAxisMode] = useState<"date" | "nth">("date");
   const [copied, setCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobile(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
 
   const chartData = useMemo(
     () =>
@@ -79,10 +88,10 @@ export default function ProfileOverview({
     chartData.length > 0 ? chartData[chartData.length - 1].elo : user.eloRating;
 
   return (
-    <section className="space-y-6 rounded-2xl border border-slate-700/70 bg-slate-900/75 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-slate-700 text-3xl font-bold text-cyan-100">
+    <section className="space-y-4 rounded-2xl border border-slate-700/70 bg-slate-900/75 p-4 sm:space-y-6 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-slate-700 text-xl font-bold text-cyan-100 sm:h-20 sm:w-20 sm:text-3xl">
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -94,10 +103,12 @@ export default function ProfileOverview({
               user.nickname[0]
             )}
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-white">{user.nickname}</h2>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center rounded-md border border-cyan-400/35 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold tracking-wider text-cyan-100">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-bold text-white sm:text-2xl">
+              {user.nickname}
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="inline-flex items-center rounded-md border border-cyan-400/35 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-cyan-100 sm:px-2.5 sm:py-1 sm:text-xs">
                 Club ID: {clubId}
               </span>
               <button
@@ -111,12 +122,12 @@ export default function ProfileOverview({
                     setCopied(false);
                   }
                 }}
-                className="rounded-md border border-slate-600 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-800"
+                className="rounded-md border border-slate-600 px-2 py-0.5 text-[11px] text-slate-200 hover:bg-slate-800 sm:px-2.5 sm:py-1 sm:text-xs"
               >
                 {copied ? "已复制" : "复制"}
               </button>
             </div>
-            <p className="mt-1 max-w-xl text-sm text-slate-300">
+            <p className="mt-1 hidden max-w-xl text-sm text-slate-300 sm:block">
               {user.bio || "这个人很神秘，还没有留下个人描述。"}
             </p>
           </div>
@@ -124,36 +135,36 @@ export default function ProfileOverview({
 
         <Link
           href="/profile/edit"
-          className="relative z-10 inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white"
+          className="relative z-10 inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-semibold text-white sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
         >
-          <PencilLine className="h-4 w-4" />
+          <PencilLine className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           编辑资料
         </Link>
       </div>
 
       <>
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-3 text-center">
-            <p className="text-xs text-slate-400">ELO</p>
-            <p className="mt-1 text-xl font-bold text-cyan-100">
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-2 py-2 text-center sm:px-4 sm:py-3">
+            <p className="text-[10px] text-slate-400 sm:text-xs">ELO</p>
+            <p className="mt-1 text-base font-bold text-cyan-100 sm:text-xl">
               {user.eloRating}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-3 text-center">
-            <p className="text-xs text-slate-400">积分</p>
-            <p className="mt-1 text-xl font-bold text-cyan-100">
+          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-2 py-2 text-center sm:px-4 sm:py-3">
+            <p className="text-[10px] text-slate-400 sm:text-xs">积分</p>
+            <p className="mt-1 text-base font-bold text-cyan-100 sm:text-xl">
               {user.points}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-3 text-center">
-            <p className="text-xs text-slate-400">胜场数</p>
-            <p className="mt-1 text-xl font-bold text-emerald-300">
+          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-2 py-2 text-center sm:px-4 sm:py-3">
+            <p className="text-[10px] text-slate-400 sm:text-xs">胜场</p>
+            <p className="mt-1 text-base font-bold text-emerald-300 sm:text-xl">
               {user.wins}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-4 py-3 text-center">
-            <p className="text-xs text-slate-400">败场数</p>
-            <p className="mt-1 text-xl font-bold text-rose-300">
+          <div className="rounded-xl border border-slate-700 bg-slate-800/70 px-2 py-2 text-center sm:px-4 sm:py-3">
+            <p className="text-[10px] text-slate-400 sm:text-xs">败场</p>
+            <p className="mt-1 text-base font-bold text-rose-300 sm:text-xl">
               {user.losses}
             </p>
           </div>
@@ -235,8 +246,22 @@ export default function ProfileOverview({
                         border: "1px solid rgb(51 65 85)",
                         borderRadius: "0.75rem",
                         color: "rgb(226 232 240)",
+                        fontSize: isMobile ? "11px" : "12px",
+                        padding: isMobile ? "6px 8px" : "10px 12px",
+                        maxWidth: isMobile ? "160px" : "220px",
                       }}
-                      labelStyle={{ color: "rgb(148 163 184)" }}
+                      labelStyle={{
+                        color: "rgb(148 163 184)",
+                        fontSize: isMobile ? "10px" : "12px",
+                        marginBottom: isMobile ? "2px" : "4px",
+                      }}
+                      itemStyle={{
+                        color: "rgb(226 232 240)",
+                        fontSize: isMobile ? "11px" : "12px",
+                        padding: 0,
+                        margin: 0,
+                      }}
+                      wrapperStyle={{ zIndex: 20 }}
                       labelFormatter={(value) =>
                         xAxisMode === "date" ? `日期：${value}` : `${value}`
                       }

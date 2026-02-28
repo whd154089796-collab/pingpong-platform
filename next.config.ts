@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   async headers() {
+    const isProd = process.env.NODE_ENV === "production";
     const csp = [
       "default-src 'self'",
       "base-uri 'self'",
@@ -18,9 +19,11 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://res.cloudinary.com",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.resend.com",
+      isProd
+        ? "connect-src 'self' https://api.resend.com"
+        : "connect-src 'self' https://api.resend.com ws: wss: http: https:",
       "frame-src 'none'",
-      'upgrade-insecure-requests',
+      ...(isProd ? ["upgrade-insecure-requests"] : []),
     ].join('; ')
 
     return [

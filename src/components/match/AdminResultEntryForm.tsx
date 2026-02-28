@@ -328,7 +328,7 @@ export default function AdminResultEntryForm({
   return (
     <form
       action={formAction}
-      className="space-y-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4"
+      className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/50 p-3 sm:space-y-4 sm:p-4"
     >
       <input type="hidden" name="csrfToken" defaultValue="" />
       <h3 className="text-sm font-semibold text-slate-100">管理员录入赛果</h3>
@@ -336,8 +336,8 @@ export default function AdminResultEntryForm({
         管理员录入后将进入待确认队列，需在下方“管理员待确认赛果”中确认或否决。
       </p>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="space-y-1 text-sm text-slate-300">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
           <span>阶段</span>
           <select
             name="phase"
@@ -350,7 +350,7 @@ export default function AdminResultEntryForm({
               setSelectedPairKey("");
               setWinnerSide("A");
             }}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+            className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
           >
             <option value="group">小组赛</option>
             <option value="knockout">淘汰赛</option>
@@ -358,7 +358,7 @@ export default function AdminResultEntryForm({
         </label>
 
         {phase === "group" ? (
-          <label className="space-y-1 text-sm text-slate-300">
+          <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
             <span>小组</span>
             <select
               name="groupName"
@@ -370,7 +370,7 @@ export default function AdminResultEntryForm({
                 setSelectedPairKey("");
                 setWinnerSide("A");
               }}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
               required
             >
               {groupNames.length === 0 ? (
@@ -385,7 +385,7 @@ export default function AdminResultEntryForm({
             </select>
           </label>
         ) : (
-          <label className="space-y-1 text-sm text-slate-300">
+          <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
             <span>淘汰赛轮次</span>
             <select
               name="knockoutRound"
@@ -397,7 +397,7 @@ export default function AdminResultEntryForm({
                 setSelectedPairKey("");
                 setWinnerSide("A");
               }}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
               required
             >
               {knockoutRoundNames.length === 0 ? (
@@ -415,9 +415,9 @@ export default function AdminResultEntryForm({
       </div>
 
       {phase === "group" ? (
-        <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-sm text-slate-300">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
               <span>获胜方（仅显示还有未登记比赛的选手）</span>
               <select
                 value={activeGroupWinnerId}
@@ -425,7 +425,7 @@ export default function AdminResultEntryForm({
                   setGroupWinnerId(event.target.value);
                   setGroupLoserId("");
                 }}
-                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+                className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
                 disabled={groupWinnerCandidates.length === 0}
               >
                 {groupWinnerCandidates.length === 0 ? (
@@ -440,12 +440,12 @@ export default function AdminResultEntryForm({
               </select>
             </label>
 
-            <label className="space-y-1 text-sm text-slate-300">
+            <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
               <span>失败方（仅显示与胜方仍有未登记比赛的对手）</span>
               <select
                 value={activeGroupLoserId}
                 onChange={(event) => setGroupLoserId(event.target.value)}
-                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+                className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
                 disabled={groupLoserCandidates.length === 0}
               >
                 {groupLoserCandidates.length === 0 ? (
@@ -462,7 +462,7 @@ export default function AdminResultEntryForm({
           </div>
 
           {activeGroupBattleTable && (
-            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+            <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-2.5 sm:p-3">
               <p className="mb-2 text-xs text-slate-400">
                 {activeGroupBattleTable.groupName} 对战表（行选手对列选手）
               </p>
@@ -540,8 +540,8 @@ export default function AdminResultEntryForm({
           )}
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="space-y-1 text-sm text-slate-300">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
             <span>可录入对局（仅未完成）</span>
             <select
               value={activeKnockoutPairKey}
@@ -549,7 +549,7 @@ export default function AdminResultEntryForm({
                 setSelectedPairKey(event.target.value);
                 setWinnerSide("A");
               }}
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
               disabled={visiblePairs.length === 0}
             >
               {visiblePairs.length === 0 ? (
@@ -564,14 +564,14 @@ export default function AdminResultEntryForm({
             </select>
           </label>
 
-          <label className="space-y-1 text-sm text-slate-300">
+          <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
             <span>获胜方</span>
             <select
               value={winnerSide}
               onChange={(event) =>
                 setWinnerSide(event.target.value as "A" | "B")
               }
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+              className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2.5 text-sm text-slate-100"
               disabled={!activeKnockoutPair}
             >
               {activeKnockoutPair ? (
@@ -590,7 +590,7 @@ export default function AdminResultEntryForm({
           </label>
 
           {knockoutRounds && knockoutRounds.length > 0 ? (
-            <div className="md:col-span-2 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+            <div className="col-span-2 rounded-xl border border-slate-700 bg-slate-900/60 p-2.5 sm:p-3">
               <p className="mb-2 text-xs text-slate-400">
                 淘汰赛签表（已自动定位并高亮当前选择对局）
               </p>
@@ -607,8 +607,8 @@ export default function AdminResultEntryForm({
       <input type="hidden" name="winnerTeamIds" value={winnerId} />
       <input type="hidden" name="loserTeamIds" value={loserId} />
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <label className="space-y-1 text-sm text-slate-300">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
           <span>局制（必选）</span>
           <select
             name="bestOf"
@@ -619,7 +619,7 @@ export default function AdminResultEntryForm({
               setBestOf(value);
               setLoserScore(0);
             }}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+            className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-sm text-slate-100"
           >
             <option value={3}>3局2胜</option>
             <option value={5}>5局3胜</option>
@@ -627,23 +627,23 @@ export default function AdminResultEntryForm({
           </select>
         </label>
 
-        <label className="space-y-1 text-sm text-slate-300">
+        <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
           <span>胜方局分（固定）</span>
           <input
             readOnly
             value={winnerScore}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900/70 px-3 py-2 text-slate-100"
+            className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900/70 px-2 text-sm text-slate-100"
           />
         </label>
 
-        <label className="space-y-1 text-sm text-slate-300">
+        <label className="space-y-1 text-xs text-slate-300 sm:text-sm">
           <span>负方局分（必选）</span>
           <select
             name="loserScore"
             required
             value={loserScore}
             onChange={(event) => setLoserScore(Number(event.target.value))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
+            className="h-9 w-full rounded-lg border border-slate-600 bg-slate-900 px-2 text-sm text-slate-100"
           >
             {loserScoreOptions.map((score) => (
               <option key={`loser-${bestOf}-${score}`} value={score}>
@@ -664,7 +664,7 @@ export default function AdminResultEntryForm({
       <button
         type="submit"
         disabled={pending || !canSubmit}
-        className="rounded-md border border-cyan-500/40 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
+        className="w-full rounded-md border border-cyan-500/40 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60 sm:w-auto"
       >
         {pending ? "录入中..." : "录入为待确认"}
       </button>

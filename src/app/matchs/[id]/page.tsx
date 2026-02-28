@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, MapPin, Users } from "lucide-react";
+import { Calendar, MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +11,7 @@ import GroupingResultSection from "@/components/match/detail/GroupingResultSecti
 import GroupsOverviewSection from "@/components/match/detail/GroupsOverviewSection";
 import MyProgressSection from "@/components/match/detail/MyProgressSection";
 import RegisteredPlayersSection from "@/components/match/detail/RegisteredPlayersSection";
+import BackLinkButton from "@/components/navigation/BackLinkButton";
 import {
   getDoublesTeamForUser,
   getPendingMatchInvitesForUser,
@@ -263,34 +264,28 @@ export default async function MatchDetailPage({
     statusLabelMap[match.status as keyof typeof statusLabelMap] ?? "状态未知";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <Link
-        href="/matchs"
-        className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-200"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        返回比赛列表
-      </Link>
+    <div className="mx-auto max-w-5xl space-y-5 sm:space-y-8">
+      <BackLinkButton fallbackHref="/matchs" />
 
-      <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6 md:p-8">
+        <div className="mb-4 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
           <div>
-            <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-sm font-medium text-cyan-100">
+            <span className="rounded-full bg-cyan-500/20 px-2.5 py-1 text-xs font-medium text-cyan-100 sm:px-3 sm:text-sm">
               {statusLabel}
             </span>
-            <h1 className="mt-3 text-3xl font-bold text-white">
+            <h1 className="mt-2 text-2xl font-bold text-white sm:mt-3 sm:text-3xl">
               {match.title}
             </h1>
-            <p className="mt-2 text-slate-300">
+            <p className="mt-2 text-sm text-slate-300 sm:text-base">
               {match.description || "暂无描述"}
             </p>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-xs text-slate-400 sm:text-sm">
               赛制：
               {match.format === "group_only"
                 ? "分组比赛"
                 : "前期分组后期淘汰赛"}
             </p>
-            <p className="text-sm text-slate-400">
+            <p className="text-xs text-slate-400 sm:text-sm">
               报名截止：{match.registrationDeadline.toLocaleString("zh-CN")}
             </p>
             {isCreator && now < match.registrationDeadline && (
@@ -304,19 +299,21 @@ export default async function MatchDetailPage({
           </div>
         </div>
 
-        <div className="grid gap-4 text-slate-200 md:grid-cols-3">
+        <div className="grid gap-3 text-slate-200 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-cyan-300" />
             <div>
               <p className="text-xs text-slate-400">时间</p>
-              <p>{match.dateTime.toLocaleString("zh-CN")}</p>
+              <p className="text-sm sm:text-base">
+                {match.dateTime.toLocaleString("zh-CN")}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-cyan-300" />
             <div>
               <p className="text-xs text-slate-400">地点</p>
-              <p>{match.location ?? "待定"}</p>
+              <p className="text-sm sm:text-base">{match.location ?? "待定"}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -325,7 +322,7 @@ export default async function MatchDetailPage({
               <p className="text-xs text-slate-400">
                 {isDoubleMatch ? "参赛小队" : "参赛人数"}
               </p>
-              <p>
+              <p className="text-sm sm:text-base">
                 {isDoubleMatch
                   ? `${Math.floor(match.registrations.length / 2)} 组`
                   : `${match.registrations.length} 人`}
@@ -334,7 +331,7 @@ export default async function MatchDetailPage({
           </div>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-5 sm:mt-8">
           {!currentUser ? (
             <p className="text-sm text-slate-300">请先登录后报名。</p>
           ) : isCreator && !alreadyRegistered ? (
@@ -364,8 +361,8 @@ export default async function MatchDetailPage({
             ))}
 
           {currentUser && isDoubleMatch && !alreadyRegistered ? (
-            <div className="mt-4 space-y-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-              <div className="flex items-center justify-between gap-3">
+            <div className="mt-4 space-y-4 rounded-xl border border-slate-700 bg-slate-900/60 p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                 <h3 className="text-sm font-semibold text-slate-100">
                   双打组队邀请
                 </h3>
@@ -391,7 +388,7 @@ export default async function MatchDetailPage({
               <form
                 action={`/matchs/${match.id}`}
                 method="get"
-                className="flex gap-2"
+                className="flex flex-col gap-2 sm:flex-row"
               >
                 <input type="hidden" name="csrfToken" defaultValue="" />
                 <input
@@ -399,11 +396,11 @@ export default async function MatchDetailPage({
                   name="inviteQ"
                   defaultValue={inviteQ}
                   placeholder="搜索队友昵称或邮箱"
-                  className="h-9 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100"
+                  className="h-9 w-full flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100"
                 />
                 <button
                   type="submit"
-                  className="rounded-lg border border-cyan-500/40 px-3 text-sm text-cyan-200 hover:bg-cyan-500/10"
+                  className="h-9 rounded-lg border border-cyan-500/40 px-3 text-sm text-cyan-200 hover:bg-cyan-500/10 sm:h-auto"
                 >
                   搜索
                 </button>
@@ -422,7 +419,7 @@ export default async function MatchDetailPage({
                       }) => (
                         <div
                           key={candidate.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-800/40 px-3 py-2"
                         >
                           <div>
                             <p className="text-sm text-slate-100">
@@ -534,8 +531,8 @@ export default async function MatchDetailPage({
       </div>
 
       {canEditSettings && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
-          <h2 className="mb-4 text-xl font-bold text-white">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6 md:p-8">
+          <h2 className="mb-3 text-lg font-bold text-white sm:mb-4 sm:text-xl">
             赛制设置（发起人）
           </h2>
           <MatchSettingsForm
@@ -589,19 +586,19 @@ export default async function MatchDetailPage({
       )}
 
       {canManageGrouping && (
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-6">
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-amber-100">
+              <h2 className="text-base font-semibold text-amber-100 sm:text-lg">
                 分组与签位管理（发起人/管理员）
               </h2>
-              <p className="mt-1 text-sm text-amber-100/80">
+              <p className="mt-1 text-xs text-amber-100/80 sm:text-sm">
                 点击进入后可编辑分组并发布结果。
               </p>
             </div>
             <Link
               href={`/matchs/${match.id}/grouping`}
-              className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-sm font-medium text-amber-100 hover:bg-amber-500/10"
+              className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-500/10 sm:text-sm"
             >
               进入分组与签位管理
             </Link>
