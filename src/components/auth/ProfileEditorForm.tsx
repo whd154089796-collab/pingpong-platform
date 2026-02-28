@@ -145,12 +145,14 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
     dragStateRef.current = { x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!dragStateRef.current || !imageMeta) return;
+    event.preventDefault();
 
     const cropSize = Math.min(imageMeta.width, imageMeta.height) / zoom;
     const scale = CROP_VIEW_SIZE / cropSize;
@@ -169,7 +171,9 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     dragStateRef.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   const applyCrop = async () => {
@@ -235,11 +239,7 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
 
   return (
     <>
-      <form
-        action={formAction}
-        encType="multipart/form-data"
-        className="space-y-4"
-      >
+      <form action={formAction} className="space-y-4">
         <input type="hidden" name="csrfToken" defaultValue="" />
         <div>
           <label
@@ -324,7 +324,7 @@ export default function ProfileEditorForm({ nickname, bio, avatarUrl }: Props) {
 
             <div className="mt-4 flex justify-center">
               <div
-                className="relative cursor-move overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
+                className="relative cursor-move touch-none overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
                 style={{ width: CROP_VIEW_SIZE, height: CROP_VIEW_SIZE }}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}

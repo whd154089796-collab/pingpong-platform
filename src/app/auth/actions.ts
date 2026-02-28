@@ -170,7 +170,26 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
     return { error: '邮件发送失败，请稍后重试。' }
   }
 
-  return { success: '注册成功！请前往邮箱点击验证链接后再登录。' }
+  try {
+    const sessionToken = createSessionToken(user.id)
+    if (!sessionToken) {
+      return { error: '注册成功，但自动登录失败，请联系管理员检查 AUTH_SECRET。' }
+    }
+
+    const cookieStore = await cookies()
+    cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: shouldUseSecureCookies(),
+      path: '/',
+      maxAge: SESSION_TTL_SECONDS,
+    })
+  } catch (error) {
+    console.error('registerAction failed to create session token', error)
+    return { error: '注册成功，但自动登录失败，请稍后在登录页登录。' }
+  }
+
+  redirect('/profile')
 }
 
 export async function loginAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -229,7 +248,7 @@ export async function loginAction(_: AuthFormState, formData: FormData): Promise
     return { error: '登录服务配置异常，请联系管理员检查 AUTH_SECRET。' }
   }
 
-  redirect('/profile')
+  redirect('/')
 }
 
 export async function resendVerifyEmailAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
