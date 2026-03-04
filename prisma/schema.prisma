@@ -91,6 +91,12 @@ model User {
   verificationTokens EmailVerificationToken[]
 }
 
+model SiteSetting {
+  id        Int      @id @default(1)
+  isClosed  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
 model Match {
   id                   String            @id @default(cuid())
   title                String

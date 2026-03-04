@@ -10,6 +10,7 @@ const initialAdminDashboardState: AdminDashboardState = {
   unlocked: false,
   users: [],
   matches: [],
+  siteClosed: false,
 };
 
 const USERS_PER_PAGE = 20;
@@ -199,6 +200,37 @@ export default function AdminDashboardClient() {
       </section>
 
       <section className="grid gap-6">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+          <h2 className="text-lg font-semibold text-white">网站开关</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            关闭后普通用户将被引导到站点关闭页面，管理员仍可进入控制台。
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm text-slate-200">
+              当前状态：{state.siteClosed ? "已关闭" : "运行中"}
+            </span>
+            <form action={formAction}>
+              <input type="hidden" name="csrfToken" defaultValue="" />
+              <input type="hidden" name="intent" value="toggleSiteClosed" />
+              <input
+                type="hidden"
+                name="closed"
+                value={state.siteClosed ? "false" : "true"}
+              />
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-md border border-amber-500/40 px-4 py-2 text-sm text-amber-200 hover:bg-amber-500/10 disabled:opacity-60"
+              >
+                {pending
+                  ? "处理中..."
+                  : state.siteClosed
+                    ? "恢复开放"
+                    : "关闭网站"}
+              </button>
+            </form>
+          </div>
+        </div>
         <form
           action={formAction}
           className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6"
@@ -214,6 +246,9 @@ export default function AdminDashboardClient() {
                 defaultValue="test"
                 className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
               />
+              <span className="text-xs text-slate-500">
+                数量为 1 时，将生成 prefix@mail.ustc.edu.cn（不加数字）。
+              </span>
             </label>
             <label className="space-y-1 text-sm text-slate-300">
               <span>数量（1-200）</span>

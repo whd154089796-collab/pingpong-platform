@@ -41,6 +41,7 @@ export type AdminDashboardState = {
   success?: string
   users: AdminDashboardUser[]
   matches: AdminDashboardMatch[]
+  siteClosed: boolean
   createdTestAccounts?: string[]
 }
 
@@ -82,6 +83,7 @@ const INITIAL_ADMIN_DASHBOARD_STATE: AdminDashboardState = {
   unlocked: false,
   users: [],
   matches: [],
+  siteClosed: false,
 }
 
 function hashToken(token: string) {
@@ -232,7 +234,7 @@ async function issueAdminEmailChallenge(user: { id: string; email: string; nickn
 }
 
 async function fetchAdminDashboardData() {
-  const [users, matches] = await Promise.all([
+  const [users, matches, siteSetting] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
@@ -275,6 +277,10 @@ async function fetchAdminDashboardData() {
       },
       take: 200,
     }),
+    prisma.siteSetting.findUnique({
+      where: { id: 1 },
+      select: { isClosed: true },
+    }),
   ])
 
   const mappedUsers: AdminDashboardUser[] = users.map((user: AdminDashboardUserRow) => {
@@ -313,6 +319,7 @@ async function fetchAdminDashboardData() {
   return {
     users: mappedUsers,
     matches: mappedMatches,
+    siteClosed: siteSetting?.isClosed ?? false,
   }
 }
 
@@ -454,6 +461,7 @@ export async function adminDashboardAction(
       success: '邮箱二次认证通过，已解锁管理员能力。',
       users: data.users,
       matches: data.matches,
+      siteClosed: data.siteClosed,
     }
   }
 
@@ -647,16 +655,13 @@ export async function adminDashboardAction(
       }
 
       const created: string[] = []
-      let seq = 1
-      let attempts = 0
 
-      while (created.length < count && attempts < count * 30) {
-        attempts += 1
-        const email = `${prefix}${seq}${USTC_MAIL_SUFFIX}`.toLowerCase()
-        seq += 1
-
+      if (count === 1) {
+        const email = `${prefix}${USTC_MAIL_SUFFIX}`.toLowerCase()
         const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } })
-        if (existing) continue
+        if (existing) {
+          throw new Error('测试账号邮箱已存在，请更换前缀后重试。')
+        }
 
         await prisma.user.create({
           data: {
@@ -668,6 +673,29 @@ export async function adminDashboardAction(
         })
 
         created.push(email)
+      } else {
+        let seq = 1
+        let attempts = 0
+
+        while (created.length < count && attempts < count * 30) {
+          attempts += 1
+          const email = `${prefix}${seq}${USTC_MAIL_SUFFIX}`.toLowerCase()
+          seq += 1
+
+          const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+          if (existing) continue
+
+          await prisma.user.create({
+            data: {
+              email,
+              nickname: `${prefix}_${email.split('@')[0]}`,
+              hashedPassword: hashPassword(password),
+              emailVerifiedAt: new Date(),
+            },
+          })
+
+          created.push(email)
+        }
       }
 
       if (created.length === 0) {
@@ -744,7 +772,18 @@ export async function adminDashboardAction(
         success: `操作成功，已尝试将 ${toRegister.length} 个用户加入所选比赛。`,
         users: data.users,
         matches: data.matches,
+        siteClosed: data.siteClosed,
       }
+    }
+
+    if (intent === 'toggleSiteClosed') {
+      const nextClosed = String(formData.get('closed') ?? '') === 'true'
+
+      await prisma.siteSetting.upsert({
+        where: { id: 1 },
+        create: { id: 1, isClosed: nextClosed },
+        update: { isClosed: nextClosed },
+      })
     }
 
     const data = await fetchAdminDashboardData()
@@ -757,6 +796,7 @@ export async function adminDashboardAction(
           : '操作成功。',
       users: data.users,
       matches: data.matches,
+      siteClosed: data.siteClosed,
       createdTestAccounts,
     }
   } catch (error) {
@@ -767,6 +807,7 @@ export async function adminDashboardAction(
       error: '管理员操作失败，请重试。',
       users: data.users,
       matches: data.matches,
+      siteClosed: data.siteClosed,
     }
   }
 }
