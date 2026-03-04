@@ -36,7 +36,11 @@ function hashToken(token: string) {
 }
 
 function getBaseUrl() {
-  return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const fallback =
+    process.env.NODE_ENV === 'production'
+      ? 'https://kedappclub.xyz'
+      : 'http://localhost:3000'
+  return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? fallback
 }
 
 async function getClientIp() {

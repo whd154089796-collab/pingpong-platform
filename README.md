@@ -10,6 +10,8 @@ This project now includes a Prisma schema for the ping-pong platform domain (use
 ```bash
 DATABASE_URL="postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require"
 DIRECT_URL="postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require"
+APP_URL="https://kedappclub.xyz"
+NEXT_PUBLIC_APP_URL="https://kedappclub.xyz"
 ```
 
 3. Generate Prisma client and run migration:
@@ -70,6 +72,7 @@ git pull origin master
 # 3. 重新安装依赖（如果你新装了 resend 包）
 
 npm install
+npm run prisma:migrate
 
 # 4. 重新编译（这一步最耗时，也是生效的关键）
 
@@ -78,3 +81,9 @@ npm run build
 # 5. 重启 PM2 进程并更新环境变量
 
 pm2 restart kedapp --update-env
+
+pm2 start npm --name "kedapp" -- run start
+
+pm2 stop kedapp
+
+pm2 start kedapp

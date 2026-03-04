@@ -91,7 +91,11 @@ function hashToken(token: string) {
 }
 
 function getBaseUrl() {
-  return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const fallback =
+    process.env.NODE_ENV === 'production'
+      ? 'https://kedappclub.xyz'
+      : 'http://localhost:3000'
+  return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? fallback
 }
 
 async function sendAdminReauthEmail(email: string, nickname: string, code: string) {
@@ -234,7 +238,7 @@ async function issueAdminEmailChallenge(user: { id: string; email: string; nickn
 }
 
 async function fetchAdminDashboardData() {
-  const [users, matches, siteSetting] = await Promise.all([
+  const [users, matches] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
@@ -277,11 +281,18 @@ async function fetchAdminDashboardData() {
       },
       take: 200,
     }),
-    prisma.siteSetting.findUnique({
+  ])
+
+  let siteClosed = false
+  try {
+    const siteSetting = await prisma.siteSetting.findUnique({
       where: { id: 1 },
       select: { isClosed: true },
-    }),
-  ])
+    })
+    siteClosed = siteSetting?.isClosed ?? false
+  } catch (error) {
+    console.error('fetchAdminDashboardData siteSetting failed', error)
+  }
 
   const mappedUsers: AdminDashboardUser[] = users.map((user: AdminDashboardUserRow) => {
     const lastActivityCandidates = [
@@ -319,7 +330,7 @@ async function fetchAdminDashboardData() {
   return {
     users: mappedUsers,
     matches: mappedMatches,
-    siteClosed: siteSetting?.isClosed ?? false,
+    siteClosed,
   }
 }
 
