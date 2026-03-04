@@ -28,6 +28,8 @@ const AUTH_MAX_ATTEMPTS = 8
 const RESEND_WINDOW_MS = 15 * 60 * 1000
 const RESEND_MAX_ATTEMPTS = 3
 
+const ALLOWED_EMAIL_DOMAINS = ['ustc.edu.cn', 'mail.ustc.edu.cn']
+
 function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
@@ -195,10 +197,10 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
     return { error: '请完整填写昵称、邮箱和密码。' }
   }
 
-  // 临时关闭 USTC 邮箱后缀限制（测试账号阶段）
-  // if (!email.endsWith(USTC_MAIL_SUFFIX)) {
-  //   return { error: '仅支持 @mail.ustc.edu.cn 邮箱注册。' }
-  // }
+  const allowed = ALLOWED_EMAIL_DOMAINS.some((domain) => email.endsWith(`@${domain}`))
+  if (!allowed) {
+    return { error: '仅支持 ustc.edu.cn、mail.ustc.edu.cn、ah.edu.cn 域名邮箱注册。' }
+  }
 
   if (password.length < 6) {
     return { error: '密码至少需要 6 位。' }

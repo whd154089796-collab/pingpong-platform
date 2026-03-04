@@ -56,3 +56,25 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+cd /www/wwwroot/pingpongclub
+
+# 1. 拉取 GitHub 上的最新代码
+
+git pull origin master
+
+# 2. 如果你修改了 .env（比如新加了 RESEND_API_KEY），请手动更新服务器的 .env
+
+# nano .env (确认里面有新的 KEY 后 Ctrl+O 保存，Ctrl+X 退出)
+
+# 3. 重新安装依赖（如果你新装了 resend 包）
+
+npm install
+
+# 4. 重新编译（这一步最耗时，也是生效的关键）
+
+npm run build
+
+# 5. 重启 PM2 进程并更新环境变量
+
+pm2 restart kedapp --update-env

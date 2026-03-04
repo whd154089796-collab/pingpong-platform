@@ -17,6 +17,9 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+  icons: {
+    icon: "/SVG/乒协徽章.svg",
+  },
 };
 
 export const viewport: Viewport = {

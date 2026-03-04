@@ -28,6 +28,9 @@ export default function AuthForms() {
 
   return (
     <div className="w-full rounded-2xl border border-slate-700/70 bg-slate-900/75 p-6 shadow-xl shadow-black/20">
+      <div className="mb-4 rounded-xl border border-amber-400/60 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+        本平台仅面向中国科学技术大学校学生乒乓球协会内部成员使用，非协会成员请勿注册或登录。
+      </div>
       <div className="mb-6 grid grid-cols-2 rounded-xl border border-slate-700 bg-slate-800 p-1 text-sm">
         <button
           type="button"
@@ -129,9 +132,12 @@ export default function AuthForms() {
               id="register-email"
               name="email"
               type="email"
-              placeholder="example@domain.com"
+              placeholder="示例：yourname@mail.ustc.edu.cn"
               className="w-full rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 focus:ring"
             />
+            <p className="mt-1 text-xs text-slate-400">
+              仅支持 ustc.edu.cn、mail.ustc.edu.cn 域名邮箱注册。
+            </p>
           </div>
           <div>
             <label

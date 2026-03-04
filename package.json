@@ -39,5 +39,22 @@
     "prisma": "^6.19.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "browserslist": {
+    "production": [
+      "last 2 Chrome versions",
+      "last 2 Firefox versions",
+      "last 2 Edge versions",
+      "last 2 Safari versions",
+      "last 2 iOS versions",
+      ">0.5%",
+      "not dead"
+    ],
+    "development": [
+      "last 1 Chrome version",
+      "last 1 Firefox version",
+      "last 1 Edge version",
+      "last 1 Safari version"
+    ]
   }
 }
