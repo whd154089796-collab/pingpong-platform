@@ -110,10 +110,21 @@ export default function QuickMatchPanel({
   historyDays: number;
   timeoutHours: number;
 }) {
+  const [bestOf, setBestOf] = useState<3 | 5 | 7>(5);
+  const winsNeeded = Math.floor(bestOf / 2) + 1;
+  const [myScore, setMyScore] = useState(winsNeeded);
+  const [opponentScore, setOpponentScore] = useState(
+    Math.max(0, winsNeeded - 1),
+  );
   const [opponentQuery, setOpponentQuery] = useState("");
   const [state, formAction, pending] = useActionState(
     reportQuickMatchResultAction,
     initialState,
+  );
+
+  const scoreOptions = useMemo(
+    () => Array.from({ length: winsNeeded + 1 }, (_, index) => index),
+    [winsNeeded],
   );
 
   const filteredOpponents = useMemo(() => {
@@ -134,8 +145,8 @@ export default function QuickMatchPanel({
       <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
         <h2 className="text-lg font-semibold text-white">登记快速比赛结果</h2>
         <p className="mt-1 text-sm text-slate-300">
-          选择对手、获胜者与比分后提交。对手需在 {timeoutHours}{" "}
-          小时内确认，否则赛果自动作废。
+          选择对手、获胜者与赛制比分后提交。对手需在 {timeoutHours} 小时内
+          确认，否则赛果自动作废。
         </p>
 
         <form action={formAction} className="mt-4 space-y-4">
@@ -190,16 +201,60 @@ export default function QuickMatchPanel({
             </select>
           </label>
 
-          <label className="block space-y-1 text-sm text-slate-300">
-            <span>比分</span>
-            <input
-              name="scoreText"
-              required
-              maxLength={40}
-              placeholder="例如：3:1"
-              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
-            />
-          </label>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block space-y-1 text-sm text-slate-300">
+              <span>赛制</span>
+              <select
+                name="bestOf"
+                required
+                value={bestOf}
+                onChange={(event) =>
+                  setBestOf(Number(event.target.value) as 3 | 5 | 7)
+                }
+                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              >
+                <option value={3}>3局2胜</option>
+                <option value={5}>5局3胜</option>
+                <option value={7}>7局4胜</option>
+              </select>
+            </label>
+
+            <label className="block space-y-1 text-sm text-slate-300">
+              <span>我得分</span>
+              <select
+                name="myScore"
+                required
+                value={myScore}
+                onChange={(event) => setMyScore(Number(event.target.value))}
+                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              >
+                {scoreOptions.map((score) => (
+                  <option key={`my-${bestOf}-${score}`} value={score}>
+                    {score}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1 text-sm text-slate-300">
+              <span>对方得分</span>
+              <select
+                name="opponentScore"
+                required
+                value={opponentScore}
+                onChange={(event) =>
+                  setOpponentScore(Number(event.target.value))
+                }
+                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              >
+                {scoreOptions.map((score) => (
+                  <option key={`opp-${bestOf}-${score}`} value={score}>
+                    {score}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
           {state.error ? (
             <p className="text-sm text-rose-300">{state.error}</p>

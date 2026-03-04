@@ -75,18 +75,42 @@ export async function reportQuickMatchResultAction(
 
   const opponentId = String(formData.get('opponentId') ?? '').trim()
   const winnerId = String(formData.get('winnerId') ?? '').trim()
-  const scoreText = String(formData.get('scoreText') ?? '').trim()
+  const bestOfRaw = Number(formData.get('bestOf') ?? 0)
+  const myScoreRaw = Number(formData.get('myScore') ?? -1)
+  const opponentScoreRaw = Number(formData.get('opponentScore') ?? -1)
 
   if (!opponentId || opponentId === currentUser.id) {
     return { error: '请选择有效对手。' }
   }
 
-  if (!scoreText) {
-    return { error: '请填写比分。' }
+  const allowedBestOf = [3, 5, 7]
+  if (!allowedBestOf.includes(bestOfRaw)) {
+    return { error: '赛制不合法。' }
   }
 
-  if (scoreText.length > 40) {
-    return { error: '比分长度不能超过 40 个字符。' }
+  const winsNeeded = Math.floor(bestOfRaw / 2) + 1
+  const myScore = Number.isFinite(myScoreRaw) ? myScoreRaw : -1
+  const opponentScore = Number.isFinite(opponentScoreRaw) ? opponentScoreRaw : -1
+
+  const scoresInRange =
+    myScore >= 0 &&
+    opponentScore >= 0 &&
+    myScore <= winsNeeded &&
+    opponentScore <= winsNeeded
+
+  if (!scoresInRange) {
+    return { error: '比分不合法，请检查得分范围。' }
+  }
+
+  if (myScore === opponentScore) {
+    return { error: '比分不能为平局。' }
+  }
+
+  const winnerShouldBeCurrent = myScore === winsNeeded && opponentScore < winsNeeded
+  const winnerShouldBeOpponent = opponentScore === winsNeeded && myScore < winsNeeded
+
+  if (!winnerShouldBeCurrent && !winnerShouldBeOpponent) {
+    return { error: '比分不符合赛制要求，请检查胜场数。' }
   }
 
   const opponent = await prisma.user.findUnique({
@@ -100,6 +124,14 @@ export async function reportQuickMatchResultAction(
 
   if (winnerId !== currentUser.id && winnerId !== opponentId) {
     return { error: '获胜者必须是你或所选对手。' }
+  }
+
+  if (winnerId === currentUser.id && !winnerShouldBeCurrent) {
+    return { error: '获胜者与比分不一致。' }
+  }
+
+  if (winnerId === opponentId && !winnerShouldBeOpponent) {
+    return { error: '获胜者与比分不一致。' }
   }
 
   const loserId = winnerId === currentUser.id ? opponentId : currentUser.id
@@ -147,7 +179,12 @@ export async function reportQuickMatchResultAction(
         loserId,
         winnerTeamIds: [winnerId],
         loserTeamIds: [loserId],
-        score: { text: scoreText },
+        score: {
+          text: `${myScore}:${opponentScore}`,
+          bestOf: bestOfRaw,
+          myScore,
+          opponentScore,
+        },
         reportedBy: currentUser.id,
         confirmed: false,
       },

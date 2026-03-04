@@ -128,12 +128,12 @@ export default async function QuickMatchPage() {
     let scoreText = "未填写";
     if (typeof item.score === "string") {
       scoreText = item.score;
-    } else if (
-      typeof item.score === "object" &&
-      item.score &&
-      "text" in item.score
-    ) {
-      scoreText = String(item.score.text ?? "未填写");
+    } else if (typeof item.score === "object" && item.score) {
+      if ("text" in item.score && item.score.text) {
+        scoreText = String(item.score.text);
+      } else if ("myScore" in item.score && "opponentScore" in item.score) {
+        scoreText = `${String(item.score.myScore)}:${String(item.score.opponentScore)}`;
+      }
     }
 
     return {
@@ -160,12 +160,12 @@ export default async function QuickMatchPage() {
 
       if (typeof item.score === "string") {
         scoreText = item.score;
-      } else if (
-        typeof item.score === "object" &&
-        item.score &&
-        "text" in item.score
-      ) {
-        scoreText = String(item.score.text ?? "未填写");
+      } else if (typeof item.score === "object" && item.score) {
+        if ("text" in item.score && item.score.text) {
+          scoreText = String(item.score.text);
+        } else if ("myScore" in item.score && "opponentScore" in item.score) {
+          scoreText = `${String(item.score.myScore)}:${String(item.score.opponentScore)}`;
+        }
         if ("invalidReason" in item.score) {
           invalidReason = String(item.score.invalidReason ?? "");
         }
