@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   title: "USTC TTA",
   description:
     "科大校学生乒乓球协会平台，用于科大校内比赛的乒乓球竞技平台，记录每一次精彩对决，见证你的成长",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport: Viewport = {

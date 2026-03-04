@@ -45,3 +45,9 @@ public/uploads/**
 !public/uploads/avatars/
 !public/uploads/.gitkeep
 !public/uploads/avatars/.gitkeep
+
+# SSL keys
+.key*
+
+# vscode
+.vscode/
