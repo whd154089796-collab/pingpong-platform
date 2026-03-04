@@ -27,7 +27,11 @@ export default function AdminDashboardClient() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [sortBy, setSortBy] = useState<
-    "lastActivityDesc" | "lastActivityAsc" | "nicknameAsc" | "nicknameDesc"
+    | "lastActivityDesc"
+    | "lastActivityAsc"
+    | "nicknameAsc"
+    | "nicknameDesc"
+    | "adminFirstLastActivityDesc"
   >("lastActivityDesc");
 
   const filteredAndSortedUsers = useMemo(() => {
@@ -42,6 +46,15 @@ export default function AdminDashboardClient() {
       : state.users;
 
     return [...filtered].sort((a, b) => {
+      if (sortBy === "adminFirstLastActivityDesc") {
+        if (a.role !== b.role) {
+          return a.role === "admin" ? -1 : 1;
+        }
+        return (
+          new Date(b.lastActivityAt).getTime() -
+          new Date(a.lastActivityAt).getTime()
+        );
+      }
       if (sortBy === "lastActivityDesc") {
         return (
           new Date(b.lastActivityAt).getTime() -
@@ -247,7 +260,7 @@ export default function AdminDashboardClient() {
       <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
         <h2 className="text-lg font-semibold text-white">用户管理</h2>
         <p className="mt-1 text-xs text-slate-400">
-          字段：邮箱、昵称、头像、最后活动时间。支持搜索、排序、分页浏览、多选、批量封禁、批量删除、修改昵称和头像。
+          字段：邮箱、昵称、头像、最后活动时间。支持搜索、排序、分页浏览、多选、批量封禁、批量删除、修改昵称和头像、设置管理员。
         </p>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -274,11 +287,15 @@ export default function AdminDashboardClient() {
                     | "lastActivityDesc"
                     | "lastActivityAsc"
                     | "nicknameAsc"
-                    | "nicknameDesc",
+                    | "nicknameDesc"
+                    | "adminFirstLastActivityDesc",
                 );
               }}
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100"
             >
+              <option value="adminFirstLastActivityDesc">
+                管理员优先（最近活跃排序）
+              </option>
               <option value="lastActivityDesc">最后活跃时间（最近优先）</option>
               <option value="lastActivityAsc">最后活跃时间（最早优先）</option>
               <option value="nicknameAsc">昵称（A-Z）</option>
@@ -443,7 +460,7 @@ export default function AdminDashboardClient() {
                   <p className="text-sm font-medium text-slate-100">
                     {user.nickname}
                     <span className="ml-2 text-xs text-slate-400">
-                      {user.role}
+                      {user.role === "admin" ? "管理员" : "普通用户"}
                     </span>
                     {user.isBanned ? (
                       <span className="ml-2 text-xs text-rose-300">已封禁</span>
@@ -481,6 +498,30 @@ export default function AdminDashboardClient() {
                   className="rounded-md border border-cyan-500/40 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
                 >
                   保存资料
+                </button>
+              </form>
+
+              <form
+                action={formAction}
+                className="mt-3 flex flex-wrap items-center gap-3"
+              >
+                <input type="hidden" name="csrfToken" defaultValue="" />
+                <input type="hidden" name="intent" value="updateUserRole" />
+                <input type="hidden" name="userId" value={user.id} />
+                <select
+                  name="role"
+                  defaultValue={user.role}
+                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                >
+                  <option value="user">普通用户</option>
+                  <option value="admin">管理员</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-md border border-amber-500/40 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/10 disabled:opacity-60"
+                >
+                  更新权限
                 </button>
               </form>
             </div>

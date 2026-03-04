@@ -591,6 +591,46 @@ export async function adminDashboardAction(
       })
     }
 
+    if (intent === 'updateUserRole') {
+      const userId = String(formData.get('userId') ?? '')
+      const roleRaw = String(formData.get('role') ?? '')
+      const role = roleRaw === 'admin' ? 'admin' : roleRaw === 'user' ? 'user' : null
+
+      if (!userId) throw new Error('缺少用户 ID。')
+      if (!role) throw new Error('用户角色不合法。')
+      if (userId === admin.userId && role !== 'admin') {
+        throw new Error('不能取消自己的管理员权限。')
+      }
+
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      })
+
+      if (!target) {
+        throw new Error('用户不存在。')
+      }
+
+      if (target.role === 'admin' && role === 'user') {
+        const otherAdminCount = await prisma.user.count({
+          where: {
+            role: 'admin',
+            id: { not: userId },
+          },
+        })
+        if (otherAdminCount === 0) {
+          throw new Error('至少保留一个管理员账号。')
+        }
+      }
+
+      if (target.role !== role) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { role },
+        })
+      }
+    }
+
     let createdTestAccounts: string[] | undefined
 
     if (intent === 'createTestAccounts') {
