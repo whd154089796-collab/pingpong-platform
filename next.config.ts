@@ -38,6 +38,11 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["kedappclub.xyz", "www.kedappclub.xyz"],
+    },
+  },
 };
 
 export default nextConfig;
