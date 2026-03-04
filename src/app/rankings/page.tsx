@@ -148,7 +148,7 @@ export default async function RankingsPage({
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      href={`/users/${player.id}`}
+                      href={`/profile/${player.id}`}
                       className="flex items-center gap-3 transition hover:text-cyan-400"
                     >
                       <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-cyan-600 font-bold text-white">

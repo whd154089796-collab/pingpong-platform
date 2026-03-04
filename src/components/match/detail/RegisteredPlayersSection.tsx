@@ -129,7 +129,7 @@ export default function RegisteredPlayersSection({
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-cyan-500/20 text-cyan-100">
                   {item.user.nickname[0]}
                 </div>
-                <Link href={`/users/${item.user.id}`} className="flex-1">
+                <Link href={`/profile/${item.user.id}`} className="flex-1">
                   <p className="font-medium text-slate-100">
                     {item.user.nickname}
                   </p>

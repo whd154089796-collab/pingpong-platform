@@ -91,7 +91,7 @@ export default function GroupingResultSection({
                   {myGroup.players.map((player) => (
                     <li key={player.id} className="flex justify-between">
                       <Link
-                        href={`/users/${player.id}`}
+                        href={`/profile/${player.id}`}
                         className={
                           currentUserId && player.id === currentUserId
                             ? "font-semibold text-amber-200 hover:underline"

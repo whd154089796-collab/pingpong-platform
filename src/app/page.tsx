@@ -12,6 +12,8 @@ const statusLabelMap: Record<MatchStatus, "报名中" | "进行中" | "已结束
   finished: "已结束",
 };
 
+const QUICK_MATCH_TITLE_PREFIX = "[快速比赛]";
+
 function buildSparkline(values: number[], width = 360, height = 88) {
   if (values.length <= 1) return "";
   const min = Math.min(...values);
@@ -69,6 +71,13 @@ function stageLabel(input: {
 export default async function Home() {
   const [latestMatches, currentUser] = await Promise.all([
     prisma.match.findMany({
+      where: {
+        NOT: {
+          title: {
+            startsWith: QUICK_MATCH_TITLE_PREFIX,
+          },
+        },
+      },
       orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
       take: 6,
       include: {
@@ -98,7 +107,16 @@ export default async function Home() {
   if (currentUser) {
     const [registrations, histories] = await Promise.all([
       prisma.registration.findMany({
-        where: { userId: currentUser.id },
+        where: {
+          userId: currentUser.id,
+          match: {
+            NOT: {
+              title: {
+                startsWith: QUICK_MATCH_TITLE_PREFIX,
+              },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
         take: 8,
         include: {

@@ -50,6 +50,7 @@ type Props = {
   eloPoints: EloPoint[];
   recentResults: RecentResult[];
   badges: BadgeItem[];
+  showEdit?: boolean;
 };
 
 export default function ProfileOverview({
@@ -58,6 +59,7 @@ export default function ProfileOverview({
   eloPoints,
   recentResults,
   badges,
+  showEdit = true,
 }: Props) {
   const [xAxisMode, setXAxisMode] = useState<"date" | "nth">("date");
   const [copied, setCopied] = useState(false);
@@ -133,13 +135,15 @@ export default function ProfileOverview({
           </div>
         </div>
 
-        <Link
-          href="/profile/edit"
-          className="relative z-10 inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-semibold text-white sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
-        >
-          <PencilLine className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          编辑资料
-        </Link>
+        {showEdit ? (
+          <Link
+            href="/profile/edit"
+            className="relative z-10 inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-semibold text-white sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+          >
+            <PencilLine className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            编辑资料
+          </Link>
+        ) : null}
       </div>
 
       <>

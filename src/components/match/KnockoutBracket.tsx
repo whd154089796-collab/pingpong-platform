@@ -342,7 +342,7 @@ export default function KnockoutBracket({
 
   const buildPlayerProfileHref = (playerId?: string | null) => {
     if (!playerId) return null;
-    return `/users/${playerId}`;
+    return `/profile/${playerId}`;
   };
 
   useEffect(() => {

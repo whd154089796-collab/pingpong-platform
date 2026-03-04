@@ -62,7 +62,7 @@ export default function GroupsOverviewSection({
                 {group.players.map((player) => (
                   <li key={player.id} className="flex justify-between">
                     <Link
-                      href={`/users/${player.id}`}
+                      href={`/profile/${player.id}`}
                       className="hover:text-cyan-300 hover:underline"
                     >
                       {player.nickname}

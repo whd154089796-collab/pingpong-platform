@@ -255,7 +255,7 @@ export async function updateProfileAction(_: ProfileFormState, formData: FormDat
 
   revalidatePath('/profile')
   revalidatePath('/profile/edit')
-  revalidatePath(`/users/${currentUser.id}`)
+  revalidatePath(`/profile/${currentUser.id}`)
 
   return { success: '资料已更新。' }
 }

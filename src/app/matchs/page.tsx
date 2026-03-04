@@ -9,6 +9,8 @@ const statusLabelMap = {
   finished: "已结束",
 } as const;
 
+const QUICK_MATCH_TITLE_PREFIX = "[快速比赛]";
+
 type MatchesPageProps = {
   searchParams?:
     | {
@@ -32,14 +34,25 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
   const query = (rawQuery ?? "").trim();
 
   const matches = await prisma.match.findMany({
-    where: query
-      ? {
-          title: {
-            contains: query,
-            mode: "insensitive",
+    where: {
+      AND: [
+        query
+          ? {
+              title: {
+                contains: query,
+                mode: "insensitive",
+              },
+            }
+          : {},
+        {
+          NOT: {
+            title: {
+              startsWith: QUICK_MATCH_TITLE_PREFIX,
+            },
           },
-        }
-      : undefined,
+        },
+      ],
+    },
     include: {
       _count: { select: { registrations: true } },
       groupingResult: true,
