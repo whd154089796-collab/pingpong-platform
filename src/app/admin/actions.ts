@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword } from '@/lib/password'
 import { shouldUseSecureCookies } from '@/lib/session'
+import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -92,12 +93,7 @@ function getBaseUrl() {
 }
 
 async function sendAdminReauthEmail(email: string, nickname: string, code: string) {
-  const resendApiKey = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM_EMAIL
-
-  if (!resendApiKey || !from) {
-    throw new Error('邮件服务未配置：请设置 RESEND_API_KEY 与 RESEND_FROM_EMAIL')
-  }
+  const { apiKey: resendApiKey, from } = getResendConfig()
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -123,14 +119,11 @@ async function sendAdminReauthEmail(email: string, nickname: string, code: strin
     }),
   })
 
-  if (!response.ok) {
-    const detail = await response.text()
-    console.error('sendAdminReauthEmail failed', {
-      status: response.status,
-      detail,
-    })
-    throw new Error('管理员验证邮件发送失败，请稍后重试。')
-  }
+  await assertResendResponseOk(
+    response,
+    'sendAdminReauthEmail',
+    '管理员验证邮件发送失败，请稍后重试。',
+  )
 }
 
 function getReauthSecret() {

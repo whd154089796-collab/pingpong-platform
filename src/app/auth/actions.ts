@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword, verifyPassword } from '@/lib/password'
 import { hitRateLimit } from '@/lib/rate-limit'
+import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
 import {
   createSessionToken,
   SESSION_COOKIE_NAME,
@@ -67,12 +68,7 @@ async function checkAuthRateLimit(action: 'register' | 'login' | 'resend', email
 }
 
 async function sendVerificationEmail(email: string, nickname: string, token: string) {
-  const resendApiKey = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM_EMAIL
-
-  if (!resendApiKey || !from) {
-    throw new Error('邮件服务未配置：请设置 RESEND_API_KEY 与 RESEND_FROM_EMAIL')
-  }
+  const { apiKey: resendApiKey, from } = getResendConfig()
 
   const verifyUrl = `${getBaseUrl()}/auth/verify?token=${encodeURIComponent(token)}`
 
@@ -99,23 +95,11 @@ async function sendVerificationEmail(email: string, nickname: string, token: str
     }),
   })
 
-  if (!response.ok) {
-    const detail = await response.text()
-    console.error('sendVerificationEmail failed', {
-      status: response.status,
-      detail,
-    })
-    throw new Error('邮件发送失败，请稍后重试。')
-  }
+  await assertResendResponseOk(response, 'sendVerificationEmail', '邮件发送失败，请稍后重试。')
 }
 
 async function sendPasswordResetEmail(email: string, nickname: string, token: string) {
-  const resendApiKey = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM_EMAIL
-
-  if (!resendApiKey || !from) {
-    throw new Error('邮件服务未配置：请设置 RESEND_API_KEY 与 RESEND_FROM_EMAIL')
-  }
+  const { apiKey: resendApiKey, from } = getResendConfig()
 
   const resetUrl = `${getBaseUrl()}/auth/reset-password?token=${encodeURIComponent(token)}`
 
@@ -142,14 +126,11 @@ async function sendPasswordResetEmail(email: string, nickname: string, token: st
     }),
   })
 
-  if (!response.ok) {
-    const detail = await response.text()
-    console.error('sendPasswordResetEmail failed', {
-      status: response.status,
-      detail,
-    })
-    throw new Error('重置密码邮件发送失败，请稍后重试。')
-  }
+  await assertResendResponseOk(
+    response,
+    'sendPasswordResetEmail',
+    '重置密码邮件发送失败，请稍后重试。',
+  )
 }
 
 async function createEmailToken(userId: string, ttlMs: number) {
@@ -228,26 +209,7 @@ export async function registerAction(_: AuthFormState, formData: FormData): Prom
     return { error: '邮件发送失败，请稍后重试。' }
   }
 
-  try {
-    const sessionToken = createSessionToken(user.id)
-    if (!sessionToken) {
-      return { error: '注册成功，但自动登录失败，请联系管理员检查 AUTH_SECRET。' }
-    }
-
-    const cookieStore = await cookies()
-    cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: shouldUseSecureCookies(),
-      path: '/',
-      maxAge: SESSION_TTL_SECONDS,
-    })
-  } catch (error) {
-    console.error('registerAction failed to create session token', error)
-    return { error: '注册成功，但自动登录失败，请稍后在登录页登录。' }
-  }
-
-  redirect('/profile')
+  return { success: '注册成功，请查收验证邮件并完成邮箱验证后再登录。' }
 }
 
 export async function loginAction(_: AuthFormState, formData: FormData): Promise<AuthFormState> {

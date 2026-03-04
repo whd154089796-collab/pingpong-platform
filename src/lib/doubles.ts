@@ -28,6 +28,22 @@ type InviteRow = {
   matchTitle: string
 }
 
+function isMissingInviteTableError(error: unknown) {
+  const maybeError = error as {
+    code?: string
+    message?: string
+    meta?: { code?: string; message?: string }
+  }
+
+  return (
+    maybeError.code === 'P2010' &&
+    maybeError.meta?.code === '42P01' &&
+    (maybeError.meta?.message?.includes('match_doubles_invite') ??
+      maybeError.message?.includes('match_doubles_invite') ??
+      false)
+  )
+}
+
 async function getMatchBasic(matchId: string) {
   const rows = await prisma.$queryRaw<MatchBasicRow[]>`
     SELECT id, type, status, "registrationDeadline"
@@ -78,20 +94,7 @@ export async function getPendingInviteCountForUser(userId: string) {
     `
     return Number(rows[0]?.count ?? 0)
   } catch (error) {
-    const maybeError = error as {
-      code?: string
-      message?: string
-      meta?: { code?: string; message?: string }
-    }
-
-    const isMissingInviteTable =
-      maybeError.code === 'P2010' &&
-      maybeError.meta?.code === '42P01' &&
-      (maybeError.meta?.message?.includes('match_doubles_invite') ??
-        maybeError.message?.includes('match_doubles_invite') ??
-        false)
-
-    if (isMissingInviteTable) {
+    if (isMissingInviteTableError(error)) {
       return 0
     }
 
@@ -437,46 +440,60 @@ export async function removeRegisteredDoublesTeamByMember(matchId: string, userI
 }
 
 export async function getInvitesForUser(currentUserId: string) {
-  return prisma.$queryRaw<InviteRow[]>`
-    SELECT
-      i.id,
-      i.match_id AS "matchId",
-      i.inviter_id AS "inviterId",
-      i.invitee_id AS "inviteeId",
-      i.status,
-      i.created_at AS "createdAt",
-      inviter.nickname AS "inviterNickname",
-      invitee.nickname AS "inviteeNickname",
-      m.title AS "matchTitle"
-    FROM match_doubles_invite i
-    JOIN "User" inviter ON inviter.id = i.inviter_id
-    JOIN "User" invitee ON invitee.id = i.invitee_id
-    JOIN "Match" m ON m.id = i.match_id
-    WHERE i.inviter_id = ${currentUserId}
-       OR i.invitee_id = ${currentUserId}
-    ORDER BY i.created_at DESC
-  `
+  try {
+    return await prisma.$queryRaw<InviteRow[]>`
+      SELECT
+        i.id,
+        i.match_id AS "matchId",
+        i.inviter_id AS "inviterId",
+        i.invitee_id AS "inviteeId",
+        i.status,
+        i.created_at AS "createdAt",
+        inviter.nickname AS "inviterNickname",
+        invitee.nickname AS "inviteeNickname",
+        m.title AS "matchTitle"
+      FROM match_doubles_invite i
+      JOIN "User" inviter ON inviter.id = i.inviter_id
+      JOIN "User" invitee ON invitee.id = i.invitee_id
+      JOIN "Match" m ON m.id = i.match_id
+      WHERE i.inviter_id = ${currentUserId}
+         OR i.invitee_id = ${currentUserId}
+      ORDER BY i.created_at DESC
+    `
+  } catch (error) {
+    if (isMissingInviteTableError(error)) {
+      return []
+    }
+    throw error
+  }
 }
 
 export async function getPendingMatchInvitesForUser(matchId: string, currentUserId: string) {
-  return prisma.$queryRaw<InviteRow[]>`
-    SELECT
-      i.id,
-      i.match_id AS "matchId",
-      i.inviter_id AS "inviterId",
-      i.invitee_id AS "inviteeId",
-      i.status,
-      i.created_at AS "createdAt",
-      inviter.nickname AS "inviterNickname",
-      invitee.nickname AS "inviteeNickname",
-      m.title AS "matchTitle"
-    FROM match_doubles_invite i
-    JOIN "User" inviter ON inviter.id = i.inviter_id
-    JOIN "User" invitee ON invitee.id = i.invitee_id
-    JOIN "Match" m ON m.id = i.match_id
-    WHERE i.match_id = ${matchId}
-      AND i.status = 'pending'
-      AND (i.inviter_id = ${currentUserId} OR i.invitee_id = ${currentUserId})
-    ORDER BY i.created_at DESC
-  `
+  try {
+    return await prisma.$queryRaw<InviteRow[]>`
+      SELECT
+        i.id,
+        i.match_id AS "matchId",
+        i.inviter_id AS "inviterId",
+        i.invitee_id AS "inviteeId",
+        i.status,
+        i.created_at AS "createdAt",
+        inviter.nickname AS "inviterNickname",
+        invitee.nickname AS "inviteeNickname",
+        m.title AS "matchTitle"
+      FROM match_doubles_invite i
+      JOIN "User" inviter ON inviter.id = i.inviter_id
+      JOIN "User" invitee ON invitee.id = i.invitee_id
+      JOIN "Match" m ON m.id = i.match_id
+      WHERE i.match_id = ${matchId}
+        AND i.status = 'pending'
+        AND (i.inviter_id = ${currentUserId} OR i.invitee_id = ${currentUserId})
+      ORDER BY i.created_at DESC
+    `
+  } catch (error) {
+    if (isMissingInviteTableError(error)) {
+      return []
+    }
+    throw error
+  }
 }
