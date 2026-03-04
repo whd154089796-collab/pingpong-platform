@@ -1,9 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { type Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
+import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
 
 export type QuickMatchFormState = {
   error?: string
@@ -33,6 +35,63 @@ function normalizeScore(score: unknown) {
   }
 
   return {}
+}
+
+async function applyQuickMatchElo(
+  tx: Prisma.TransactionClient,
+  payload: { matchId: string; winnerTeamIds: string[]; loserTeamIds: string[] },
+) {
+  const allParticipantIds = [...payload.winnerTeamIds, ...payload.loserTeamIds]
+  const users = await tx.user.findMany({
+    where: { id: { in: allParticipantIds } },
+    select: { id: true, eloRating: true, matchesPlayed: true, wins: true, losses: true },
+  })
+
+  if (users.length !== allParticipantIds.length) {
+    throw new Error('存在无效选手，无法结算 ELO。')
+  }
+
+  const userMap = new Map(users.map((u) => [u.id, u]))
+  const winnerTeam = payload.winnerTeamIds.map((id) => ({
+    userId: id,
+    eloRating: userMap.get(id)!.eloRating,
+    matchesPlayed: userMap.get(id)!.matchesPlayed,
+  }))
+  const loserTeam = payload.loserTeamIds.map((id) => ({
+    userId: id,
+    eloRating: userMap.get(id)!.eloRating,
+    matchesPlayed: userMap.get(id)!.matchesPlayed,
+  }))
+
+  const deltas =
+    winnerTeam.length === 1 && loserTeam.length === 1
+      ? settleSinglesElo(winnerTeam[0], loserTeam[0])
+      : settleTeamElo(winnerTeam, loserTeam)
+
+  for (const delta of deltas) {
+    const base = userMap.get(delta.userId)
+    if (!base) continue
+
+    await tx.user.update({
+      where: { id: delta.userId },
+      data: {
+        eloRating: delta.after,
+        matchesPlayed: base.matchesPlayed + 1,
+        wins: payload.winnerTeamIds.includes(delta.userId) ? base.wins + 1 : base.wins,
+        losses: payload.loserTeamIds.includes(delta.userId) ? base.losses + 1 : base.losses,
+      },
+    })
+
+    await tx.eloHistory.create({
+      data: {
+        userId: delta.userId,
+        matchId: payload.matchId,
+        eloBefore: delta.before,
+        eloAfter: delta.after,
+        delta: delta.delta,
+      },
+    })
+  }
 }
 
 async function invalidateQuickResult(params: {
@@ -237,16 +296,49 @@ export async function confirmQuickMatchResultAction(
     return { error: '仅对手或管理员可确认。' }
   }
 
-  await prisma.matchResult.update({
-    where: { id: result.id },
-    data: {
-      confirmed: true,
-      resultVerifiedAt: new Date(),
-      verifierId: currentUser.id,
-    },
-  })
+  try {
+    await prisma.$transaction(async (tx) => {
+      const latest = await tx.matchResult.findUnique({
+        where: { id: result.id },
+        include: { match: true },
+      })
+      if (!latest) throw new Error('赛果不存在。')
+      if (!isQuickMatchTitle(latest.match.title)) throw new Error('不是快速比赛赛果。')
+      if (latest.confirmed) return
+
+      if (isExpired(latest.createdAt)) {
+        await invalidateQuickResult({
+          resultId: latest.id,
+          matchId: latest.matchId,
+          existingScore: latest.score,
+          reason: 'timeout',
+        })
+        throw new Error('该赛果已超过 24 小时未确认，已作废。')
+      }
+
+      await applyQuickMatchElo(tx, {
+        matchId: latest.matchId,
+        winnerTeamIds: latest.winnerTeamIds,
+        loserTeamIds: latest.loserTeamIds,
+      })
+
+      await tx.matchResult.update({
+        where: { id: latest.id },
+        data: {
+          confirmed: true,
+          resultVerifiedAt: new Date(),
+          verifierId: currentUser.id,
+        },
+      })
+    })
+  } catch (error) {
+    console.error('confirmQuickMatchResultAction failed', error)
+    return { error: '确认失败。' }
+  }
 
   revalidatePath('/quick-match')
+  revalidatePath('/rankings')
+  revalidatePath('/profile')
   return { success: '已确认该快速比赛结果。' }
 }
 
