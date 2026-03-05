@@ -111,7 +111,8 @@ export default async function MatchDetailPage({
   const now = new Date();
   const isCreator = currentUser?.id === match.createdBy;
   const isAdmin = currentUser?.role === "admin" && adminViewEnabled;
-  const canManageGrouping = Boolean(currentUser && (isCreator || isAdmin));
+  const adminViewBlocked = currentUser?.role === "admin" && !adminViewEnabled;
+  const canManageGrouping = Boolean(currentUser && isAdmin);
   const canRegister =
     Boolean(currentUser) &&
     match.status === "registration" &&
@@ -294,14 +295,16 @@ export default async function MatchDetailPage({
             <p className="text-xs text-slate-400 sm:text-sm">
               报名截止：{match.registrationDeadline.toLocaleString("zh-CN")}
             </p>
-            {(isCreator || isAdmin) && now < match.registrationDeadline && (
-              <Link
-                href={`/matchs/${match.id}/edit`}
-                className="mt-3 inline-block rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-500/10"
-              >
-                修改比赛
-              </Link>
-            )}
+            {(isCreator || isAdmin) &&
+              now < match.registrationDeadline &&
+              !adminViewBlocked && (
+                <Link
+                  href={`/matchs/${match.id}/edit`}
+                  className="mt-3 inline-block rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-500/10"
+                >
+                  修改比赛
+                </Link>
+              )}
           </div>
         </div>
 
@@ -578,7 +581,7 @@ export default async function MatchDetailPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-amber-100 sm:text-lg">
-                分组与签位管理（发起人/管理员）
+                分组与签位管理（管理员）
               </h2>
               <p className="mt-1 text-xs text-amber-100/80 sm:text-sm">
                 点击进入后可编辑分组并发布结果。
