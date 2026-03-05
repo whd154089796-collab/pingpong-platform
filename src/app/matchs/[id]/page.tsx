@@ -80,6 +80,7 @@ export default async function MatchDetailPage({
               select: {
                 id: true,
                 nickname: true,
+                avatarUrl: true,
                 eloRating: true,
                 points: true,
               },

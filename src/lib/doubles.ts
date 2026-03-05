@@ -13,6 +13,7 @@ type TeamMemberRow = {
   registeredAt: Date | null
   userId: string
   nickname: string
+  avatarUrl: string | null
   slot: number
 }
 
@@ -139,6 +140,7 @@ export async function getDoublesTeamForUser(matchId: string, userId: string) {
       t.registered_at AS "registeredAt",
       tm.user_id AS "userId",
       u.nickname,
+      u."avatarUrl",
       tm.slot
     FROM match_doubles_team t
     JOIN match_doubles_team_member tm ON tm.team_id = t.id
@@ -159,7 +161,12 @@ export async function getDoublesTeamForUser(matchId: string, userId: string) {
   return {
     teamId: rows[0].teamId,
     registeredAt: rows[0].registeredAt,
-    members: rows.map((row) => ({ userId: row.userId, nickname: row.nickname, slot: row.slot })),
+    members: rows.map((row) => ({
+      userId: row.userId,
+      nickname: row.nickname,
+      avatarUrl: row.avatarUrl,
+      slot: row.slot,
+    })),
   }
 }
 
@@ -170,6 +177,7 @@ export async function getRegisteredDoublesTeams(matchId: string) {
       t.registered_at AS "registeredAt",
       tm.user_id AS "userId",
       u.nickname,
+      u."avatarUrl",
       tm.slot
     FROM match_doubles_team t
     JOIN match_doubles_team_member tm ON tm.team_id = t.id
@@ -179,7 +187,14 @@ export async function getRegisteredDoublesTeams(matchId: string) {
     ORDER BY t.created_at ASC, tm.slot ASC
   `
 
-  const grouped = new Map<string, { teamId: string; registeredAt: Date | null; members: Array<{ userId: string; nickname: string; slot: number }> }>()
+  const grouped = new Map<
+    string,
+    {
+      teamId: string
+      registeredAt: Date | null
+      members: Array<{ userId: string; nickname: string; avatarUrl: string | null; slot: number }>
+    }
+  >()
   for (const row of rows) {
     if (!grouped.has(row.teamId)) {
       grouped.set(row.teamId, {
@@ -188,7 +203,12 @@ export async function getRegisteredDoublesTeams(matchId: string) {
         members: [],
       })
     }
-    grouped.get(row.teamId)!.members.push({ userId: row.userId, nickname: row.nickname, slot: row.slot })
+    grouped.get(row.teamId)!.members.push({
+      userId: row.userId,
+      nickname: row.nickname,
+      avatarUrl: row.avatarUrl,
+      slot: row.slot,
+    })
   }
 
   return Array.from(grouped.values())

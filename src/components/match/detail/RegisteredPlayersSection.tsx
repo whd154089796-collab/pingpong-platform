@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { removeRegistrationByManagerVoidAction } from "@/app/matchs/actions";
+import { normalizeAvatarUrl } from "@/lib/utils";
 
 type RegistrationItem = {
   id: string;
   user: {
     id: string;
     nickname: string;
+    avatarUrl?: string | null;
     points: number;
     eloRating: number;
   };
@@ -16,6 +18,7 @@ type DoublesTeamItem = {
   members: Array<{
     userId: string;
     nickname: string;
+    avatarUrl?: string | null;
   }>;
 };
 
@@ -85,8 +88,32 @@ export default function RegisteredPlayersSection({
                   <span className="w-6 font-mono text-slate-400">
                     {participantsStartIndex + index + 1}
                   </span>
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-cyan-500/20 text-cyan-100">
-                    {(playerA?.nickname?.[0] ?? "?").toUpperCase()}
+                  <div className="flex items-center gap-1">
+                    {[playerA, playerB].map((player, idx) => {
+                      const avatarUrl = normalizeAvatarUrl(
+                        player?.avatarUrl ?? null,
+                      );
+                      const fallback = (
+                        player?.nickname?.[0] ?? "?"
+                      ).toUpperCase();
+                      return (
+                        <div
+                          key={`${team.teamId}-avatar-${idx}`}
+                          className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-cyan-500/20 text-xs text-cyan-100"
+                        >
+                          {avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={avatarUrl}
+                              alt={player?.nickname ?? "选手"}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            fallback
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-slate-100">
@@ -126,8 +153,19 @@ export default function RegisteredPlayersSection({
                 <span className="w-6 font-mono text-slate-400">
                   {participantsStartIndex + index + 1}
                 </span>
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-cyan-500/20 text-cyan-100">
-                  {item.user.nickname[0]}
+                <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-cyan-500/20 text-cyan-100">
+                  {normalizeAvatarUrl(item.user.avatarUrl ?? null) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={
+                        normalizeAvatarUrl(item.user.avatarUrl ?? null) ?? ""
+                      }
+                      alt={item.user.nickname}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    item.user.nickname[0]
+                  )}
                 </div>
                 <Link href={`/profile/${item.user.id}`} className="flex-1">
                   <p className="font-medium text-slate-100">
