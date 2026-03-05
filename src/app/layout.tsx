@@ -39,7 +39,8 @@ export default async function RootLayout({
   const currentUser = await getCurrentUser();
   const cookieStore = await cookies();
   const adminMode = cookieStore.get(ADMIN_MODE_COOKIE)?.value;
-  const adminViewEnabled = adminMode !== "user";
+  const resolvedAdminMode = adminMode === "user" ? "user" : "admin";
+  const adminViewEnabled = resolvedAdminMode !== "user";
 
   return (
     <html lang="zh-CN" className="overflow-x-hidden">
@@ -53,6 +54,7 @@ export default async function RootLayout({
             <Header
               isLoggedIn={Boolean(currentUser)}
               adminViewEnabled={adminViewEnabled}
+              adminMode={resolvedAdminMode}
               currentUser={
                 currentUser
                   ? {

@@ -72,7 +72,7 @@ git pull origin master
 # 3. 重新安装依赖（如果你新装了 resend 包）
 
 npm install
-npm run prisma:migrate
+npx prisma migrate deploy
 
 # 4. 重新编译（这一步最耗时，也是生效的关键）
 

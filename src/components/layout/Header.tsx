@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, Trophy } from "lucide-react";
 import { useState } from "react";
 import { normalizeAvatarUrl } from "@/lib/utils";
+import AdminModeToggle from "@/components/layout/AdminModeToggle";
 
 type Props = {
   isLoggedIn: boolean;
@@ -14,12 +15,14 @@ type Props = {
     role: string;
   } | null;
   adminViewEnabled?: boolean;
+  adminMode?: "admin" | "user";
 };
 
 export default function Header({
   isLoggedIn,
   currentUser,
   adminViewEnabled = true,
+  adminMode = "admin",
 }: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -66,32 +69,42 @@ export default function Header({
         </div>
 
         {currentUser && (
-          <Link
-            href="/profile"
-            className="mb-3 flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-slate-800/70 px-3 py-2"
-          >
-            <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-500/15 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/25">
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={avatarUrl}
-                  alt={currentUser.nickname}
-                  className="h-full w-full object-cover"
-                  onError={() => setAvatarFailed(true)}
-                />
-              ) : (
-                <span aria-hidden="true">{avatarFallback}</span>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-100">
-                {currentUser.nickname}
-              </p>
-              <p className="text-xs text-cyan-200">
-                ELO {currentUser.eloRating}
-              </p>
-            </div>
-          </Link>
+          <div className="mb-3 flex items-center gap-2">
+            <Link
+              href="/profile"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-cyan-400/25 bg-slate-800/70 px-3 py-2"
+            >
+              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-500/15 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/25">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt={currentUser.nickname}
+                    className="h-full w-full object-cover"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  <span aria-hidden="true">{avatarFallback}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-100">
+                  {currentUser.nickname}
+                </p>
+                <p className="text-xs text-cyan-200">
+                  ELO {currentUser.eloRating}
+                </p>
+              </div>
+            </Link>
+
+            {currentUser.role === "admin" ? (
+              <AdminModeToggle
+                initialMode={adminMode}
+                compact
+                className="shrink-0"
+              />
+            ) : null}
+          </div>
         )}
 
         {isMenuOpen && (
