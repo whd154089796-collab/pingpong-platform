@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import RegisterMatchButton from "@/components/match/RegisterMatchButton";
 import UnregisterMatchButton from "@/components/match/UnregisterMatchButton";
-import MatchSettingsForm from "@/components/match/MatchSettingsForm";
 import AdminResultsSection from "@/components/match/detail/AdminResultsSection";
 import GroupingResultSection from "@/components/match/detail/GroupingResultSection";
 import GroupsOverviewSection from "@/components/match/detail/GroupsOverviewSection";
@@ -105,7 +104,6 @@ export default async function MatchDetailPage({
   const now = new Date();
   const isCreator = currentUser?.id === match.createdBy;
   const isAdmin = currentUser?.role === "admin";
-  const canEditSettings = isCreator && now < match.registrationDeadline;
   const canManageGrouping = Boolean(currentUser && (isCreator || isAdmin));
   const canRegister =
     Boolean(currentUser) &&
@@ -289,7 +287,7 @@ export default async function MatchDetailPage({
             <p className="text-xs text-slate-400 sm:text-sm">
               报名截止：{match.registrationDeadline.toLocaleString("zh-CN")}
             </p>
-            {isCreator && now < match.registrationDeadline && (
+            {(isCreator || isAdmin) && now < match.registrationDeadline && (
               <Link
                 href={`/matchs/${match.id}/edit`}
                 className="mt-3 inline-block rounded-lg border border-cyan-400/40 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-500/10"
@@ -530,24 +528,6 @@ export default async function MatchDetailPage({
           ) : null}
         </div>
       </div>
-
-      {canEditSettings && (
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-6 md:p-8">
-          <h2 className="mb-3 text-lg font-bold text-white sm:mb-4 sm:text-xl">
-            赛制设置（发起人）
-          </h2>
-          <MatchSettingsForm
-            matchId={match.id}
-            format={match.format}
-            registrationDeadline={new Date(
-              match.registrationDeadline.getTime() -
-                match.registrationDeadline.getTimezoneOffset() * 60000,
-            )
-              .toISOString()
-              .slice(0, 16)}
-          />
-        </div>
-      )}
 
       {Boolean(
         currentUser &&
