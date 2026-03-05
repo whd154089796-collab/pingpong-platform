@@ -89,6 +89,22 @@ model User {
   auditLogs       AuditLog[]
 
   verificationTokens EmailVerificationToken[]
+
+  adminTrustedDevices AdminTrustedDevice[]
+}
+
+model AdminTrustedDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model SiteSetting {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   adminDashboardAction,
   type AdminDashboardState,
@@ -24,6 +24,13 @@ export default function AdminDashboardClient() {
     adminDashboardAction,
     initialAdminDashboardState,
   );
+
+  useEffect(() => {
+    const formData = new FormData();
+    formData.set("intent", "bootstrap");
+    formAction(formData);
+  }, [formAction]);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -129,7 +136,8 @@ export default function AdminDashboardClient() {
       <div className="mx-auto max-w-3xl rounded-2xl border border-slate-700 bg-slate-900/80 p-8">
         <h1 className="text-2xl font-bold text-white">管理员控制台</h1>
         <p className="mt-3 text-sm text-slate-300">
-          出于安全要求，每次进入管理员页都需要邮箱二次验证。
+          出于安全要求，进入管理员页需要邮箱二次验证；验证后可选择信任此设备 7
+          天。
         </p>
 
         <form action={formAction} className="mt-6">
@@ -165,6 +173,17 @@ export default function AdminDashboardClient() {
               placeholder="请输入 6 位验证码"
             />
           </label>
+
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              name="trustDevice"
+              value="true"
+              className="h-4 w-4 rounded border border-slate-600 bg-slate-900"
+            />
+            <span>信任此设备，7 天内无需再次二次验证</span>
+          </label>
+
           <button
             type="submit"
             disabled={pending}
@@ -544,6 +563,7 @@ export default function AdminDashboardClient() {
                 <input type="hidden" name="intent" value="updateUserRole" />
                 <input type="hidden" name="userId" value={user.id} />
                 <select
+                  aria-label="角色"
                   name="role"
                   defaultValue={user.role}
                   className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"

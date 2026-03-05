@@ -1,6 +1,6 @@
 'use server'
 
-import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
@@ -11,8 +11,10 @@ import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
+const ADMIN_TRUSTED_DEVICE_COOKIE = 'ustc_tta_admin_trusted_device'
 const ADMIN_REAUTH_TTL_SECONDS = 60 * 30
 const ADMIN_EMAIL_CHALLENGE_TTL_SECONDS = 60 * 10
+const ADMIN_TRUSTED_DEVICE_TTL_SECONDS = 60 * 60 * 24 * 7
 const USTC_MAIL_SUFFIX = '@mail.ustc.edu.cn'
 
 export type AdminDashboardUser = {
@@ -195,8 +197,34 @@ async function getAdminIdentity() {
 async function isAdminReauthed(userId: string) {
   const cookieStore = await cookies()
   const raw = cookieStore.get(ADMIN_REAUTH_COOKIE)?.value
-  if (!raw) return false
-  return verifyReauthValue(raw, userId)
+  if (raw && verifyReauthValue(raw, userId)) return true
+
+  const rawTrustedToken = cookieStore.get(ADMIN_TRUSTED_DEVICE_COOKIE)?.value
+  if (!rawTrustedToken) return false
+  if (!/^[0-9a-f]{64}$/i.test(rawTrustedToken)) return false
+
+  const now = new Date()
+  const tokenHash = hashToken(rawTrustedToken.toLowerCase())
+  const record = await prisma.adminTrustedDevice.findFirst({
+    where: {
+      userId,
+      tokenHash,
+      revokedAt: null,
+      expiresAt: { gt: now },
+    },
+    select: { id: true },
+  })
+
+  if (!record) return false
+
+  prisma.adminTrustedDevice
+    .update({
+      where: { id: record.id },
+      data: { lastUsedAt: now },
+    })
+    .catch(() => {})
+
+  return true
 }
 
 async function issueAdminReauth(userId: string) {
@@ -214,6 +242,29 @@ async function issueAdminReauth(userId: string) {
 async function clearAdminEmailChallengeCookie() {
   const cookieStore = await cookies()
   cookieStore.delete(ADMIN_EMAIL_CHALLENGE_COOKIE)
+}
+
+async function issueAdminTrustedDevice(userId: string) {
+  const rawToken = randomBytes(32).toString('hex')
+  const tokenHash = hashToken(rawToken)
+  const expiresAt = new Date(Date.now() + ADMIN_TRUSTED_DEVICE_TTL_SECONDS * 1000)
+
+  await prisma.adminTrustedDevice.create({
+    data: {
+      userId,
+      tokenHash,
+      expiresAt,
+    },
+  })
+
+  const cookieStore = await cookies()
+  cookieStore.set(ADMIN_TRUSTED_DEVICE_COOKIE, rawToken, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: shouldUseSecureCookies(),
+    path: '/admin',
+    maxAge: ADMIN_TRUSTED_DEVICE_TTL_SECONDS,
+  })
 }
 
 async function issueAdminEmailChallenge(user: { id: string; email: string; nickname: string }) {
@@ -360,6 +411,33 @@ export async function adminDashboardAction(
   prev: AdminDashboardState,
   formData: FormData,
 ): Promise<AdminDashboardState> {
+  const intent = String(formData.get('intent') ?? '')
+
+  if (intent === 'bootstrap') {
+    const admin = await getAdminIdentity()
+    if (!admin.ok) {
+      return {
+        ...INITIAL_ADMIN_DASHBOARD_STATE,
+        error: admin.error,
+      }
+    }
+
+    const reauthed = await isAdminReauthed(admin.userId)
+    if (!reauthed) {
+      return {
+        ...INITIAL_ADMIN_DASHBOARD_STATE,
+      }
+    }
+
+    const data = await fetchAdminDashboardData()
+    return {
+      unlocked: true,
+      users: data.users,
+      matches: data.matches,
+      siteClosed: data.siteClosed,
+    }
+  }
+
   const csrfError = await validateCsrfToken(formData)
   if (csrfError) {
     return {
@@ -375,8 +453,6 @@ export async function adminDashboardAction(
       error: admin.error,
     }
   }
-
-  const intent = String(formData.get('intent') ?? '')
 
   if (intent === 'sendEmailChallenge') {
     const adminRecord = await prisma.user.findUnique({
@@ -426,6 +502,7 @@ export async function adminDashboardAction(
 
   if (intent === 'reauth') {
     const code = String(formData.get('code') ?? '').trim()
+    const trustDevice = String(formData.get('trustDevice') ?? '') === 'true'
     if (!/^\d{6}$/.test(code)) {
       return {
         ...prev,
@@ -464,12 +541,23 @@ export async function adminDashboardAction(
     }
 
     await issueAdminReauth(admin.userId)
+
+    let success = '邮箱二次认证通过，已解锁管理员能力。'
+    if (trustDevice) {
+      try {
+        await issueAdminTrustedDevice(admin.userId)
+        success = '邮箱二次认证通过，已信任此设备 7 天。'
+      } catch (error) {
+        console.error('issueAdminTrustedDevice failed', error)
+        success = '邮箱二次认证通过，但信任设备设置失败（可正常使用本次解锁）。'
+      }
+    }
     await clearAdminEmailChallengeCookie()
     const data = await fetchAdminDashboardData()
 
     return {
       unlocked: true,
-      success: '邮箱二次认证通过，已解锁管理员能力。',
+      success,
       users: data.users,
       matches: data.matches,
       siteClosed: data.siteClosed,

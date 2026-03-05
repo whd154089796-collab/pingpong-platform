@@ -12,9 +12,14 @@ type Props = {
     eloRating: number;
     role: string;
   } | null;
+  adminViewEnabled?: boolean;
 };
 
-export default function Header({ isLoggedIn, currentUser }: Props) {
+export default function Header({
+  isLoggedIn,
+  currentUser,
+  adminViewEnabled = true,
+}: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const avatarFallback = (
     currentUser?.nickname?.trim()?.[0] ?? "?"
@@ -25,10 +30,10 @@ export default function Header({ isLoggedIn, currentUser }: Props) {
     { href: "/rankings", label: "排行榜" },
     ...(isLoggedIn ? [{ href: "/quick-match", label: "快速比赛" }] : []),
     ...(isLoggedIn ? [{ href: "/team-invites", label: "组队信息" }] : []),
-    ...(currentUser?.role === "admin"
+    ...(currentUser?.role === "admin" && adminViewEnabled
       ? [{ href: "/matchs/create", label: "发布比赛" }]
       : []),
-    ...(currentUser?.role === "admin"
+    ...(currentUser?.role === "admin" && adminViewEnabled
       ? [{ href: "/admin", label: "管理员控制台" }]
       : []),
   ];

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   ShieldCheck,
   CalendarRange,
@@ -11,6 +12,13 @@ import {
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getPendingInviteCountForUser } from "@/lib/doubles";
+import AdminModeToggle from "@/components/layout/AdminModeToggle";
+
+const ADMIN_MODE_COOKIE = "ustc_tta_admin_mode";
+
+function resolveAdminMode(raw: string | undefined) {
+  return raw === "user" ? "user" : "admin";
+}
 
 const navItems = [
   { href: "/", label: "首页", icon: Home },
@@ -20,26 +28,30 @@ const navItems = [
 
 export default async function Sidebar() {
   const currentUser = await getCurrentUser();
+  const cookieStore = await cookies();
+  const adminMode = resolveAdminMode(cookieStore.get(ADMIN_MODE_COOKIE)?.value);
+  const adminViewEnabled =
+    currentUser?.role === "admin" && adminMode === "admin";
+
   const pendingInviteCount = currentUser
     ? await getPendingInviteCountForUser(currentUser.id)
     : 0;
   const hasPendingInvites = pendingInviteCount > 0;
-  const resolvedNavItems =
-    currentUser?.role === "admin"
+  const resolvedNavItems = adminViewEnabled
+    ? [
+        ...navItems,
+        { href: "/quick-match", label: "快速比赛", icon: Clock3 },
+        { href: "/team-invites", label: "组队信息", icon: Mail },
+        { href: "/matchs/create", label: "发布比赛", icon: PlusSquare },
+        { href: "/admin", label: "管理员控制台", icon: ShieldCheck },
+      ]
+    : currentUser
       ? [
           ...navItems,
           { href: "/quick-match", label: "快速比赛", icon: Clock3 },
           { href: "/team-invites", label: "组队信息", icon: Mail },
-          { href: "/matchs/create", label: "发布比赛", icon: PlusSquare },
-          { href: "/admin", label: "管理员控制台", icon: ShieldCheck },
         ]
-      : currentUser
-        ? [
-            ...navItems,
-            { href: "/quick-match", label: "快速比赛", icon: Clock3 },
-            { href: "/team-invites", label: "组队信息", icon: Mail },
-          ]
-        : navItems;
+      : navItems;
   const avatarFallback = (
     currentUser?.nickname?.trim()?.[0] ?? "?"
   ).toUpperCase();
@@ -109,6 +121,10 @@ export default async function Sidebar() {
               </div>
             </div>
           )}
+
+          {currentUser?.role === "admin" ? (
+            <AdminModeToggle initialMode={adminMode} />
+          ) : null}
         </section>
 
         <nav className="mt-6 space-y-2">

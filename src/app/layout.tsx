@@ -6,6 +6,9 @@ import Footer from "@/components/layout/Footer";
 import Sidebar from "@/components/layout/Sidebar";
 import CsrfFormInjector from "@/components/security/CsrfFormInjector";
 import { getCurrentUser } from "@/lib/auth";
+import { cookies } from "next/headers";
+
+const ADMIN_MODE_COOKIE = "ustc_tta_admin_mode";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,6 +37,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const currentUser = await getCurrentUser();
+  const cookieStore = await cookies();
+  const adminMode = cookieStore.get(ADMIN_MODE_COOKIE)?.value;
+  const adminViewEnabled = adminMode !== "user";
 
   return (
     <html lang="zh-CN" className="overflow-x-hidden">
@@ -46,6 +52,7 @@ export default async function RootLayout({
           <div className="flex min-h-screen min-w-0 flex-col md:pl-72">
             <Header
               isLoggedIn={Boolean(currentUser)}
+              adminViewEnabled={adminViewEnabled}
               currentUser={
                 currentUser
                   ? {
