@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   adminDashboardAction,
   type AdminDashboardState,
@@ -35,6 +36,7 @@ export default function AdminDashboardClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [openUserId, setOpenUserId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<
     | "lastActivityDesc"
     | "lastActivityAsc"
@@ -486,12 +488,21 @@ export default function AdminDashboardClient() {
               key={user.id}
               className="rounded-xl border border-slate-700 bg-slate-800/40 p-3"
             >
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-slate-300">
+              <div
+                onClick={() =>
+                  setOpenUserId((prev) => (prev === user.id ? null : user.id))
+                }
+                className="flex flex-wrap items-center gap-3 cursor-pointer"
+              >
+                <label
+                  className="flex items-center gap-2 text-xs text-slate-300"
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <input
                     type="checkbox"
                     checked={selectedUserIdSet.has(user.id)}
                     onChange={() => toggleUser(user.id)}
+                    onClick={(event) => event.stopPropagation()}
                     className="h-4 w-4 rounded border-slate-500 bg-slate-900"
                   />
                   选择
@@ -538,63 +549,74 @@ export default function AdminDashboardClient() {
                 </div>
               </div>
 
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs text-cyan-200 hover:text-cyan-100">
-                  编辑资料与权限
-                </summary>
+              {openUserId === user.id ? (
+                <div className="mt-2 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <Link
+                      href={`/profile/${user.id}`}
+                      className="rounded-md border border-slate-600 px-2.5 py-1 text-slate-200 hover:bg-slate-700/40"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      查看个人主页（普通视图）
+                    </Link>
+                    <span className="text-slate-500">
+                      点击上方卡片可收起编辑区域
+                    </span>
+                  </div>
 
-                <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                  <form action={formAction} className="contents">
+                  <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                    <form action={formAction} className="contents">
+                      <input type="hidden" name="csrfToken" defaultValue="" />
+                      <input type="hidden" name="intent" value="updateUser" />
+                      <input type="hidden" name="userId" value={user.id} />
+                      <input
+                        aria-label="昵称"
+                        name="nickname"
+                        defaultValue={user.nickname}
+                        className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+                      />
+                      <input
+                        name="avatarUrl"
+                        defaultValue={user.avatarUrl ?? ""}
+                        placeholder="头像 URL"
+                        className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+                      />
+                      <button
+                        type="submit"
+                        disabled={pending}
+                        className="rounded-md border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
+                      >
+                        保存资料
+                      </button>
+                    </form>
+                  </div>
+
+                  <form
+                    action={formAction}
+                    className="flex flex-wrap items-center gap-2"
+                  >
                     <input type="hidden" name="csrfToken" defaultValue="" />
-                    <input type="hidden" name="intent" value="updateUser" />
+                    <input type="hidden" name="intent" value="updateUserRole" />
                     <input type="hidden" name="userId" value={user.id} />
-                    <input
-                      aria-label="昵称"
-                      name="nickname"
-                      defaultValue={user.nickname}
-                      className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-                    />
-                    <input
-                      name="avatarUrl"
-                      defaultValue={user.avatarUrl ?? ""}
-                      placeholder="头像 URL"
-                      className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-100"
-                    />
+                    <select
+                      aria-label="角色"
+                      name="role"
+                      defaultValue={user.role}
+                      className="rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-2 text-xs text-slate-100"
+                    >
+                      <option value="user">普通用户</option>
+                      <option value="admin">管理员</option>
+                    </select>
                     <button
                       type="submit"
                       disabled={pending}
-                      className="rounded-md border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
+                      className="rounded-md border border-amber-500/40 px-3 py-2 text-xs text-amber-200 hover:bg-amber-500/10 disabled:opacity-60"
                     >
-                      保存资料
+                      更新权限
                     </button>
                   </form>
                 </div>
-
-                <form
-                  action={formAction}
-                  className="mt-2 flex flex-wrap items-center gap-2"
-                >
-                  <input type="hidden" name="csrfToken" defaultValue="" />
-                  <input type="hidden" name="intent" value="updateUserRole" />
-                  <input type="hidden" name="userId" value={user.id} />
-                  <select
-                    aria-label="角色"
-                    name="role"
-                    defaultValue={user.role}
-                    className="rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-2 text-xs text-slate-100"
-                  >
-                    <option value="user">普通用户</option>
-                    <option value="admin">管理员</option>
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className="rounded-md border border-amber-500/40 px-3 py-2 text-xs text-amber-200 hover:bg-amber-500/10 disabled:opacity-60"
-                  >
-                    更新权限
-                  </button>
-                </form>
-              </details>
+              ) : null}
             </div>
           ))}
         </div>
