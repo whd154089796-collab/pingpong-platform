@@ -8,6 +8,7 @@ import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword } from '@/lib/password'
 import { shouldUseSecureCookies } from '@/lib/session'
 import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
+import { writeAuditLog } from '@/lib/audit-log'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -38,12 +39,27 @@ export type AdminDashboardMatch = {
   currentParticipants: number
 }
 
+export type AdminDashboardAuditLog = {
+  id: string
+  action: string
+  entityType: string
+  entityId: string
+  createdAt: string
+  actor?: {
+    id: string
+    nickname: string
+    email: string
+  } | null
+  details?: Record<string, unknown> | null
+}
+
 export type AdminDashboardState = {
   unlocked: boolean
   error?: string
   success?: string
   users: AdminDashboardUser[]
   matches: AdminDashboardMatch[]
+  auditLogs: AdminDashboardAuditLog[]
   siteClosed: boolean
   createdTestAccounts?: string[]
 }
@@ -87,6 +103,7 @@ const INITIAL_ADMIN_DASHBOARD_STATE: AdminDashboardState = {
   unlocked: false,
   users: [],
   matches: [],
+  auditLogs: [],
   siteClosed: false,
 }
 
@@ -291,7 +308,7 @@ async function issueAdminEmailChallenge(user: { id: string; email: string; nickn
 }
 
 async function fetchAdminDashboardData() {
-  const [users, matches] = await Promise.all([
+  const [users, matches, auditLogs] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
@@ -334,6 +351,21 @@ async function fetchAdminDashboardData() {
         },
       },
       take: 200,
+    }),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        createdAt: true,
+        details: true,
+        actor: {
+          select: { id: true, nickname: true, email: true },
+        },
+      },
     }),
   ])
 
@@ -382,9 +414,21 @@ async function fetchAdminDashboardData() {
     currentParticipants: match._count.registrations,
   }))
 
+  const mappedAuditLogs: AdminDashboardAuditLog[] = auditLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId,
+    createdAt: log.createdAt.toISOString(),
+    actor: log.actor,
+    details:
+      typeof log.details === 'object' && log.details ? (log.details as Record<string, unknown>) : null,
+  }))
+
   return {
     users: mappedUsers,
     matches: mappedMatches,
+    auditLogs: mappedAuditLogs,
     siteClosed,
   }
 }
@@ -438,6 +482,7 @@ export async function adminDashboardAction(
       unlocked: true,
       users: data.users,
       matches: data.matches,
+      auditLogs: data.auditLogs,
       siteClosed: data.siteClosed,
     }
   }
@@ -546,6 +591,14 @@ export async function adminDashboardAction(
 
     await issueAdminReauth(admin.userId)
 
+    await writeAuditLog({
+      actorId: admin.userId,
+      action: 'admin.reauth',
+      entityType: 'AdminAuth',
+      entityId: admin.userId,
+      details: { trustDevice },
+    })
+
     let success = '邮箱二次认证通过，已解锁管理员能力。'
     if (trustDevice) {
       try {
@@ -564,6 +617,7 @@ export async function adminDashboardAction(
       success,
       users: data.users,
       matches: data.matches,
+      auditLogs: data.auditLogs,
       siteClosed: data.siteClosed,
     }
   }
@@ -587,6 +641,14 @@ export async function adminDashboardAction(
       await prisma.user.update({
         where: { id: userId },
         data: { isBanned: banned },
+      })
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: banned ? 'user.ban' : 'user.unban',
+        entityType: 'User',
+        entityId: userId,
+        details: { banned },
       })
     }
 
@@ -629,6 +691,14 @@ export async function adminDashboardAction(
           isBanned: banned,
         },
       })
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: banned ? 'user.bulk.ban' : 'user.bulk.unban',
+        entityType: 'User',
+        entityId: 'bulk',
+        details: { banned, count: editableIds.length, userIds: editableIds },
+      })
     }
 
     if (intent === 'deleteUser') {
@@ -646,6 +716,13 @@ export async function adminDashboardAction(
       }
 
       await prisma.user.delete({ where: { id: userId } })
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: 'user.delete',
+        entityType: 'User',
+        entityId: userId,
+      })
     }
 
     if (intent === 'bulkDeleteUsers') {
@@ -683,6 +760,14 @@ export async function adminDashboardAction(
           id: { in: deletableIds },
         },
       })
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: 'user.bulk.delete',
+        entityType: 'User',
+        entityId: 'bulk',
+        details: { count: deletableIds.length, userIds: deletableIds },
+      })
     }
 
     if (intent === 'updateUser') {
@@ -699,6 +784,14 @@ export async function adminDashboardAction(
           nickname,
           avatarUrl: avatarUrlRaw || null,
         },
+      })
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: 'user.update',
+        entityType: 'User',
+        entityId: userId,
+        details: { nickname, avatarUrl: avatarUrlRaw || null },
       })
     }
 
@@ -738,6 +831,14 @@ export async function adminDashboardAction(
         await prisma.user.update({
           where: { id: userId },
           data: { role },
+        })
+
+        await writeAuditLog({
+          actorId: admin.userId,
+          action: 'user.role.change',
+          entityType: 'User',
+          entityId: userId,
+          details: { from: target.role, to: role },
         })
       }
     }
@@ -806,6 +907,14 @@ export async function adminDashboardAction(
       }
 
       createdTestAccounts = created
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: 'user.test.create',
+        entityType: 'User',
+        entityId: 'bulk',
+        details: { prefix, count: created.length },
+      })
     }
 
     if (intent === 'bulkRegisterMatch') {
@@ -866,6 +975,14 @@ export async function adminDashboardAction(
         skipDuplicates: true,
       })
 
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: 'match.bulk.register',
+        entityType: 'Match',
+        entityId: matchId,
+        details: { count: toRegister.length, userIds: toRegister.map((u) => u.id) },
+      })
+
       createdTestAccounts = undefined
 
       const data = await fetchAdminDashboardData()
@@ -875,6 +992,7 @@ export async function adminDashboardAction(
         success: `操作成功，已尝试将 ${toRegister.length} 个用户加入所选比赛。`,
         users: data.users,
         matches: data.matches,
+        auditLogs: data.auditLogs,
         siteClosed: data.siteClosed,
       }
     }
@@ -886,6 +1004,14 @@ export async function adminDashboardAction(
         where: { id: 1 },
         create: { id: 1, isClosed: nextClosed },
         update: { isClosed: nextClosed },
+      })
+
+      await writeAuditLog({
+        actorId: admin.userId,
+        action: nextClosed ? 'site.close' : 'site.open',
+        entityType: 'SiteSetting',
+        entityId: '1',
+        details: { isClosed: nextClosed },
       })
     }
 
@@ -899,6 +1025,7 @@ export async function adminDashboardAction(
           : '操作成功。',
       users: data.users,
       matches: data.matches,
+      auditLogs: data.auditLogs,
       siteClosed: data.siteClosed,
       createdTestAccounts,
     }
@@ -910,6 +1037,7 @@ export async function adminDashboardAction(
       error: '管理员操作失败，请重试。',
       users: data.users,
       matches: data.matches,
+      auditLogs: data.auditLogs,
       siteClosed: data.siteClosed,
     }
   }

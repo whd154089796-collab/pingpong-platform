@@ -12,6 +12,7 @@ const initialAdminDashboardState: AdminDashboardState = {
   unlocked: false,
   users: [],
   matches: [],
+  auditLogs: [],
   siteClosed: false,
 };
 
@@ -620,6 +621,48 @@ export default function AdminDashboardClient() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+        <h2 className="text-lg font-semibold text-white">审计日志</h2>
+        <p className="mt-1 text-xs text-slate-400">
+          最近 50 条管理员操作记录（时间、操作者、动作、对象）。
+        </p>
+
+        {state.auditLogs.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-400">暂无审计日志。</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {state.auditLogs.map((log) => (
+              <div
+                key={log.id}
+                className="rounded-lg border border-slate-700/70 bg-slate-950/40 px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  <span className="text-slate-400">
+                    {formatDateTime(log.createdAt)}
+                  </span>
+                  <span className="rounded-full border border-slate-600 px-2 py-0.5">
+                    {log.action}
+                  </span>
+                  <span className="text-slate-400">{log.entityType}</span>
+                  <span className="text-slate-200">{log.entityId}</span>
+                  <span className="text-slate-500">·</span>
+                  <span className="text-slate-200">
+                    {log.actor
+                      ? `${log.actor.nickname} (${log.actor.email})`
+                      : "系统"}
+                  </span>
+                </div>
+                {log.details ? (
+                  <pre className="mt-2 whitespace-pre-wrap break-words rounded-md bg-slate-900/70 p-2 text-[11px] text-slate-300">
+                    {JSON.stringify(log.details, null, 2)}
+                  </pre>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

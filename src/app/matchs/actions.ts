@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { generateGroupingPayload } from '@/lib/tournament'
 import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
 import { validateCsrfToken } from '@/lib/csrf'
+import { writeAuditLog } from '@/lib/audit-log'
 import {
   registerDoublesTeamByUser,
   removeRegisteredDoublesTeamByMember,
@@ -708,6 +709,20 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
     },
   })
 
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.create',
+    entityType: 'Match',
+    entityId: created.id,
+    details: {
+      title,
+      type,
+      format,
+      dateTime: matchDate.toISOString(),
+      registrationDeadline: deadline.toISOString(),
+    },
+  })
+
   await prisma.registration.deleteMany({ where: { matchId: created.id, userId: currentUser.id } })
 
   revalidatePath('/matchs')
@@ -810,6 +825,17 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
     },
   })
   await prisma.matchGrouping.deleteMany({ where: { matchId } })
+
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.format.update',
+    entityType: 'Match',
+    entityId: matchId,
+    details: {
+      format,
+      registrationDeadline: nextDeadline.toISOString(),
+    },
+  })
 
   revalidatePath(`/matchs/${matchId}`)
   revalidatePath('/matchs')
@@ -949,6 +975,20 @@ export async function updateMatchAction(matchId: string, formData: FormData) {
     // Remove groupings if format changed or just to be safe as per previous logic
     await prisma.matchGrouping.deleteMany({ where: { matchId } })
 
+    await writeAuditLog({
+      actorId: currentUser.id,
+      action: 'match.update',
+      entityType: 'Match',
+      entityId: matchId,
+      details: {
+        title,
+        type,
+        format,
+        dateTime: matchDate.toISOString(),
+        registrationDeadline: deadline.toISOString(),
+      },
+    })
+
     // We do NOT revalidatePath here to avoid server-side hanging.
     // The client will force a location change.
     return { success: true }
@@ -1041,6 +1081,14 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
     }),
   ])
 
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.grouping.confirm',
+    entityType: 'Match',
+    entityId: matchId,
+    details: { mode: match.format },
+  })
+
   revalidatePath('/matchs')
   revalidatePath(`/matchs/${matchId}`)
 
@@ -1123,6 +1171,21 @@ export async function submitGroupMatchResultAction(matchId: string, _: MatchForm
       },
       reportedBy: currentUser.id,
       confirmed: false,
+    },
+  })
+
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.result.admin.report',
+    entityType: 'MatchResult',
+    entityId: matchId,
+    details: {
+      matchId,
+      phase,
+      groupName: phase === 'group' ? groupName : undefined,
+      knockoutRound: phase === 'knockout' ? knockoutRound : undefined,
+      winnerTeamIds,
+      loserTeamIds,
     },
   })
 
@@ -1328,6 +1391,14 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
   revalidatePath('/rankings')
   revalidatePath('/profile')
   revalidatePath(`/matchs/${matchId}`)
+
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.result.confirm',
+    entityType: 'MatchResult',
+    entityId: resultId,
+    details: { matchId, isManager },
+  })
   if (winnerRewardSummary.length === 1) {
     const winner = winnerRewardSummary[0]
     return {
@@ -1427,6 +1498,14 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
     })
   })
 
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.registration.remove',
+    entityType: 'Registration',
+    entityId: `${matchId}:${userId}`,
+    details: { matchId, userId },
+  })
+
   revalidatePath('/matchs')
   revalidatePath(`/matchs/${matchId}`)
   return { success: '已移除该参赛者，并回收报名奖励积分。' }
@@ -1455,6 +1534,14 @@ export async function rejectMatchResultAction(matchId: string, resultId: string,
   if (!isManager) return { error: '仅发起人或管理员可否决。' }
 
   await prisma.matchResult.delete({ where: { id: resultId } })
+
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.result.reject',
+    entityType: 'MatchResult',
+    entityId: resultId,
+    details: { matchId },
+  })
 
   revalidatePath(`/matchs/${matchId}`)
   return { success: '已否决并移除该待确认赛果。' }
