@@ -32,6 +32,7 @@ export default function EditMatchForm({ matchId, initial }: Props) {
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [csrfToken, setCsrfToken] = useState("");
 
   // 初始化状态
   const initStart = parseIsoToLocal(initial.dateTimeIso);
@@ -105,10 +106,7 @@ export default function EditMatchForm({ matchId, initial }: Props) {
     // 传递时区偏移量（分钟），用于服务端校正
     formData.append("timezoneOffset", String(new Date().getTimezoneOffset()));
 
-    // 注入 CSRF Token (如果有这个机制的话，保持原样)
-    // 假设页面中有隐藏 input 或者我们在 action 中验证
-    // 这里我们手动添加一个空值，或者让服务端自行处理 CSRF
-    formData.append("csrfToken", "");
+    formData.append("csrfToken", csrfToken);
 
     // 3. 执行 Server Action
     startTransition(async () => {
@@ -129,8 +127,36 @@ export default function EditMatchForm({ matchId, initial }: Props) {
     });
   };
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchToken = async () => {
+      try {
+        const response = await fetch("/api/csrf-token", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { token?: string };
+        if (isMounted) {
+          setCsrfToken(payload.token ?? "");
+        }
+      } catch {
+        // Ignore token fetch failures; server will still validate origin.
+      }
+    };
+
+    void fetchToken();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <input type="hidden" name="csrfToken" value={csrfToken} />
       <div>
         <label className="mb-1 block text-sm text-slate-300">比赛名称 *</label>
         <input
