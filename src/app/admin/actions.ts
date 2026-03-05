@@ -8,7 +8,7 @@ import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword } from '@/lib/password'
 import { shouldUseSecureCookies } from '@/lib/session'
 import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
-import { writeAuditLog } from '@/lib/audit-log'
+import { getAuditContext, writeAuditLog } from '@/lib/audit-log'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -44,6 +44,8 @@ export type AdminDashboardAuditLog = {
   action: string
   entityType: string
   entityId: string
+  ip?: string | null
+  userAgent?: string | null
   createdAt: string
   actor?: {
     id: string
@@ -360,6 +362,8 @@ async function fetchAdminDashboardData() {
         action: true,
         entityType: true,
         entityId: true,
+        ip: true,
+        userAgent: true,
         createdAt: true,
         details: true,
         actor: {
@@ -419,6 +423,8 @@ async function fetchAdminDashboardData() {
     action: log.action,
     entityType: log.entityType,
     entityId: log.entityId,
+    ip: log.ip,
+    userAgent: log.userAgent,
     createdAt: log.createdAt.toISOString(),
     actor: log.actor,
     details:
@@ -453,6 +459,14 @@ function splitSelectedUserIds(raw: string) {
         .filter(Boolean),
     ),
   )
+}
+
+function summarizeTargets(items: Array<{ id: string; label: string }>) {
+  const labels = items.map((item) => item.label).filter(Boolean)
+  return {
+    count: items.length,
+    labels: labels.slice(0, 5),
+  }
 }
 
 export async function adminDashboardAction(
@@ -502,6 +516,8 @@ export async function adminDashboardAction(
       error: admin.error,
     }
   }
+
+  const auditContext = await getAuditContext()
 
   if (intent === 'sendEmailChallenge') {
     const adminRecord = await prisma.user.findUnique({
@@ -597,6 +613,8 @@ export async function adminDashboardAction(
       entityType: 'AdminAuth',
       entityId: admin.userId,
       details: { trustDevice },
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
     })
 
     let success = '邮箱二次认证通过，已解锁管理员能力。'
@@ -638,6 +656,11 @@ export async function adminDashboardAction(
       if (!userId) throw new Error('缺少用户 ID。')
       if (userId === admin.userId) throw new Error('不能封禁当前管理员自己。')
 
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nickname: true, email: true },
+      })
+
       await prisma.user.update({
         where: { id: userId },
         data: { isBanned: banned },
@@ -648,7 +671,12 @@ export async function adminDashboardAction(
         action: banned ? 'user.ban' : 'user.unban',
         entityType: 'User',
         entityId: userId,
-        details: { banned },
+        details: {
+          banned,
+          targetLabel: target ? `${target.nickname} (${target.email})` : userId,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 
@@ -668,6 +696,8 @@ export async function adminDashboardAction(
         select: {
           id: true,
           role: true,
+          nickname: true,
+          email: true,
         },
       })
 
@@ -692,12 +722,28 @@ export async function adminDashboardAction(
         },
       })
 
+      const summary = summarizeTargets(
+        targets
+          .filter((target) => editableIds.includes(target.id))
+          .map((target) => ({
+            id: target.id,
+            label: `${target.nickname} (${target.email})`,
+          })),
+      )
+
       await writeAuditLog({
         actorId: admin.userId,
         action: banned ? 'user.bulk.ban' : 'user.bulk.unban',
         entityType: 'User',
         entityId: 'bulk',
-        details: { banned, count: editableIds.length, userIds: editableIds },
+        details: {
+          banned,
+          count: editableIds.length,
+          userIds: editableIds,
+          targetLabels: summary.labels,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 
@@ -708,7 +754,7 @@ export async function adminDashboardAction(
 
       const target = await prisma.user.findUnique({
         where: { id: userId },
-        select: { role: true },
+        select: { role: true, nickname: true, email: true },
       })
 
       if (target?.role === 'admin') {
@@ -722,6 +768,11 @@ export async function adminDashboardAction(
         action: 'user.delete',
         entityType: 'User',
         entityId: userId,
+        details: {
+          targetLabel: target ? `${target.nickname} (${target.email})` : userId,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 
@@ -740,6 +791,8 @@ export async function adminDashboardAction(
         select: {
           id: true,
           role: true,
+          nickname: true,
+          email: true,
         },
       })
 
@@ -761,12 +814,27 @@ export async function adminDashboardAction(
         },
       })
 
+      const summary = summarizeTargets(
+        targets
+          .filter((target) => deletableIds.includes(target.id))
+          .map((target) => ({
+            id: target.id,
+            label: `${target.nickname} (${target.email})`,
+          })),
+      )
+
       await writeAuditLog({
         actorId: admin.userId,
         action: 'user.bulk.delete',
         entityType: 'User',
         entityId: 'bulk',
-        details: { count: deletableIds.length, userIds: deletableIds },
+        details: {
+          count: deletableIds.length,
+          userIds: deletableIds,
+          targetLabels: summary.labels,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 
@@ -777,6 +845,11 @@ export async function adminDashboardAction(
 
       if (!userId) throw new Error('缺少用户 ID。')
       if (!nickname) throw new Error('昵称不能为空。')
+
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nickname: true, email: true },
+      })
 
       await prisma.user.update({
         where: { id: userId },
@@ -791,7 +864,13 @@ export async function adminDashboardAction(
         action: 'user.update',
         entityType: 'User',
         entityId: userId,
-        details: { nickname, avatarUrl: avatarUrlRaw || null },
+        details: {
+          nickname,
+          avatarUrl: avatarUrlRaw || null,
+          targetLabel: target ? `${target.nickname} (${target.email})` : userId,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 
@@ -808,7 +887,7 @@ export async function adminDashboardAction(
 
       const target = await prisma.user.findUnique({
         where: { id: userId },
-        select: { role: true },
+        select: { role: true, nickname: true, email: true },
       })
 
       if (!target) {
@@ -838,7 +917,13 @@ export async function adminDashboardAction(
           action: 'user.role.change',
           entityType: 'User',
           entityId: userId,
-          details: { from: target.role, to: role },
+          details: {
+            from: target.role,
+            to: role,
+            targetLabel: target ? `${target.nickname} (${target.email})` : userId,
+          },
+          ip: auditContext.ip,
+          userAgent: auditContext.userAgent,
         })
       }
     }
@@ -913,7 +998,9 @@ export async function adminDashboardAction(
         action: 'user.test.create',
         entityType: 'User',
         entityId: 'bulk',
-        details: { prefix, count: created.length },
+        details: { prefix, count: created.length, sample: created.slice(0, 5) },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 
@@ -933,6 +1020,7 @@ export async function adminDashboardAction(
         where: { id: matchId },
         select: {
           id: true,
+          title: true,
           type: true,
           _count: { select: { registrations: true } },
         },
@@ -980,7 +1068,14 @@ export async function adminDashboardAction(
         action: 'match.bulk.register',
         entityType: 'Match',
         entityId: matchId,
-        details: { count: toRegister.length, userIds: toRegister.map((u) => u.id) },
+        details: {
+          count: toRegister.length,
+          userIds: toRegister.map((u) => u.id),
+          matchTitle: match.title,
+          targetLabel: match.title,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
 
       createdTestAccounts = undefined
@@ -1012,6 +1107,8 @@ export async function adminDashboardAction(
         entityType: 'SiteSetting',
         entityId: '1',
         details: { isClosed: nextClosed },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
       })
     }
 

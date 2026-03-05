@@ -8,7 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { generateGroupingPayload } from '@/lib/tournament'
 import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
 import { validateCsrfToken } from '@/lib/csrf'
-import { writeAuditLog } from '@/lib/audit-log'
+import { getAuditContext, writeAuditLog } from '@/lib/audit-log'
 import {
   registerDoublesTeamByUser,
   removeRegisteredDoublesTeamByMember,
@@ -659,6 +659,8 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录后再发布比赛。' }
 
+  const auditContext = await getAuditContext()
+
   const title = String(formData.get('title') ?? '').trim()
   const description = String(formData.get('description') ?? '').trim()
   const location = String(formData.get('location') ?? '').trim()
@@ -715,12 +717,15 @@ export async function createMatchAction(_: MatchFormState, formData: FormData): 
     entityType: 'Match',
     entityId: created.id,
     details: {
+      targetLabel: title,
       title,
       type,
       format,
       dateTime: matchDate.toISOString(),
       registrationDeadline: deadline.toISOString(),
     },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
 
   await prisma.registration.deleteMany({ where: { matchId: created.id, userId: currentUser.id } })
@@ -801,6 +806,8 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
+  const auditContext = await getAuditContext()
+
   const match = await prisma.match.findUnique({ where: { id: matchId } })
   if (!match) return { error: '比赛不存在。' }
   if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改赛制。' }
@@ -832,9 +839,12 @@ export async function updateMatchFormatAction(matchId: string, _: MatchFormState
     entityType: 'Match',
     entityId: matchId,
     details: {
+      targetLabel: match.title,
       format,
       registrationDeadline: nextDeadline.toISOString(),
     },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
 
   revalidatePath(`/matchs/${matchId}`)
@@ -927,6 +937,8 @@ export async function updateMatchAction(matchId: string, formData: FormData) {
     const currentUser = await getCurrentUser()
     if (!currentUser) return { error: '请先登录。', success: false }
 
+    const auditContext = await getAuditContext()
+
     const match = await prisma.match.findUnique({ where: { id: matchId } })
     if (!match) return { error: '比赛不存在。', success: false }
     if (match.createdBy !== currentUser.id) return { error: '仅发起人可修改比赛。', success: false }
@@ -981,12 +993,15 @@ export async function updateMatchAction(matchId: string, formData: FormData) {
       entityType: 'Match',
       entityId: matchId,
       details: {
+        targetLabel: title,
         title,
         type,
         format,
         dateTime: matchDate.toISOString(),
         registrationDeadline: deadline.toISOString(),
       },
+      ip: auditContext.ip,
+      userAgent: auditContext.userAgent,
     })
 
     // We do NOT revalidatePath here to avoid server-side hanging.
@@ -1055,6 +1070,10 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
   const currentUser = await getCurrentUser()
   const previewJson = String(formData.get('previewJson') ?? '')
 
+  if (!currentUser) return { error: '请先登录。' }
+
+  const auditContext = await getAuditContext()
+
   if (!previewJson) return { error: '请先生成分组预览。' }
 
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { groupingResult: true } })
@@ -1086,7 +1105,9 @@ export async function confirmGroupingAction(matchId: string, _: GroupingAdminSta
     action: 'match.grouping.confirm',
     entityType: 'Match',
     entityId: matchId,
-    details: { mode: match.format },
+    details: { mode: match.format, targetLabel: match.title },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
 
   revalidatePath('/matchs')
@@ -1171,21 +1192,6 @@ export async function submitGroupMatchResultAction(matchId: string, _: MatchForm
       },
       reportedBy: currentUser.id,
       confirmed: false,
-    },
-  })
-
-  await writeAuditLog({
-    actorId: currentUser.id,
-    action: 'match.result.admin.report',
-    entityType: 'MatchResult',
-    entityId: matchId,
-    details: {
-      matchId,
-      phase,
-      groupName: phase === 'group' ? groupName : undefined,
-      knockoutRound: phase === 'knockout' ? knockoutRound : undefined,
-      winnerTeamIds,
-      loserTeamIds,
     },
   })
 
@@ -1312,6 +1318,8 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
 
+  const auditContext = await getAuditContext()
+
   const result = await prisma.matchResult.findUnique({
     where: { id: resultId },
     include: { match: true },
@@ -1397,7 +1405,9 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
     action: 'match.result.confirm',
     entityType: 'MatchResult',
     entityId: resultId,
-    details: { matchId, isManager },
+    details: { matchId, isManager, targetLabel: result.match.title },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
   if (winnerRewardSummary.length === 1) {
     const winner = winnerRewardSummary[0]
@@ -1431,6 +1441,8 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
 
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
+
+  const auditContext = await getAuditContext()
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -1503,7 +1515,9 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
     action: 'match.registration.remove',
     entityType: 'Registration',
     entityId: `${matchId}:${userId}`,
-    details: { matchId, userId },
+    details: { matchId, userId, targetLabel: match.title },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
 
   revalidatePath('/matchs')
@@ -1521,6 +1535,8 @@ export async function rejectMatchResultAction(matchId: string, resultId: string,
 
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
+
+  const auditContext = await getAuditContext()
 
   const result = await prisma.matchResult.findUnique({
     where: { id: resultId },
@@ -1540,7 +1556,9 @@ export async function rejectMatchResultAction(matchId: string, resultId: string,
     action: 'match.result.reject',
     entityType: 'MatchResult',
     entityId: resultId,
-    details: { matchId },
+    details: { matchId, targetLabel: result.match.title },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
 
   revalidatePath(`/matchs/${matchId}`)
@@ -1563,6 +1581,8 @@ export async function reportMatchResultAction(matchId: string, _: MatchFormState
 
   const currentUser = await getCurrentUser()
   if (!currentUser) return { error: '请先登录。' }
+
+  const auditContext = await getAuditContext()
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -1760,6 +1780,24 @@ export async function reportMatchResultAction(matchId: string, _: MatchFormState
       reportedBy: currentUser.id,
       confirmed: false,
     },
+  })
+
+  await writeAuditLog({
+    actorId: currentUser.id,
+    action: 'match.result.admin.report',
+    entityType: 'MatchResult',
+    entityId: matchId,
+    details: {
+      targetLabel: match.title,
+      matchId,
+      phase,
+      groupName: phase === 'group' ? groupName : undefined,
+      knockoutRound: phase === 'knockout' ? knockoutRound : undefined,
+      winnerTeamIds,
+      loserTeamIds,
+    },
+    ip: auditContext.ip,
+    userAgent: auditContext.userAgent,
   })
 
   revalidatePath(`/matchs/${matchId}`)

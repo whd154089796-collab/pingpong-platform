@@ -22,6 +22,80 @@ function formatDateTime(value: string) {
   return new Date(value).toLocaleString("zh-CN");
 }
 
+function resolveAuditActionLabel(
+  action: string,
+  details: Record<string, unknown> | null | undefined,
+) {
+  const from = details?.from;
+  const to = details?.to;
+
+  switch (action) {
+    case "user.ban":
+      return "封禁用户";
+    case "user.unban":
+      return "解封用户";
+    case "user.bulk.ban":
+      return "批量封禁用户";
+    case "user.bulk.unban":
+      return "批量解封用户";
+    case "user.delete":
+      return "删除用户";
+    case "user.bulk.delete":
+      return "批量删除用户";
+    case "user.update":
+      return "更新用户资料";
+    case "user.role.change":
+      return from && to ? `修改用户权限（${from} -> ${to}）` : "修改用户权限";
+    case "user.test.create":
+      return "创建测试账号";
+    case "match.bulk.register":
+      return "批量加入比赛";
+    case "match.create":
+      return "创建比赛";
+    case "match.update":
+      return "更新比赛";
+    case "match.format.update":
+      return "更新比赛赛制";
+    case "match.grouping.confirm":
+      return "确认分组结果";
+    case "match.result.admin.report":
+      return "管理员录入赛果";
+    case "match.result.confirm":
+      return "确认赛果";
+    case "match.result.reject":
+      return "否决赛果";
+    case "match.registration.remove":
+      return "移除参赛者";
+    case "site.close":
+      return "关闭网站";
+    case "site.open":
+      return "开放网站";
+    case "admin.reauth":
+      return details?.trustDevice
+        ? "管理员二次验证（信任设备）"
+        : "管理员二次验证";
+    default:
+      return action;
+  }
+}
+
+function resolveTargetLabel(
+  entityType: string,
+  entityId: string,
+  details: Record<string, unknown> | null | undefined,
+) {
+  const targetLabel =
+    typeof details?.targetLabel === "string" ? details?.targetLabel : null;
+  if (targetLabel) return targetLabel;
+  const targetLabels = Array.isArray(details?.targetLabels)
+    ? details?.targetLabels.filter((item) => typeof item === "string")
+    : null;
+  if (targetLabels && targetLabels.length > 0) {
+    return `批量：${targetLabels.slice(0, 5).join("、")}`;
+  }
+  return `${entityType} ${entityId}`;
+}
+
 export default function AdminDashboardClient() {
   const [state, formAction, pending] = useActionState(
     adminDashboardAction,
@@ -643,21 +717,42 @@ export default function AdminDashboardClient() {
                     {formatDateTime(log.createdAt)}
                   </span>
                   <span className="rounded-full border border-slate-600 px-2 py-0.5">
-                    {log.action}
+                    {resolveAuditActionLabel(log.action, log.details)}
                   </span>
-                  <span className="text-slate-400">{log.entityType}</span>
-                  <span className="text-slate-200">{log.entityId}</span>
                   <span className="text-slate-500">·</span>
                   <span className="text-slate-200">
                     {log.actor
-                      ? `${log.actor.nickname} (${log.actor.email})`
-                      : "系统"}
+                      ? `操作者：${log.actor.nickname} (${log.actor.email})`
+                      : "操作者：系统"}
                   </span>
                 </div>
+
+                <div className="mt-1 text-xs text-slate-300">
+                  目标：
+                  {resolveTargetLabel(
+                    log.entityType,
+                    log.entityId,
+                    log.details,
+                  )}
+                </div>
+
+                {log.ip || log.userAgent ? (
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {log.ip ? `IP: ${log.ip}` : null}
+                    {log.ip && log.userAgent ? " · " : null}
+                    {log.userAgent ? `UA: ${log.userAgent}` : null}
+                  </div>
+                ) : null}
+
                 {log.details ? (
-                  <pre className="mt-2 whitespace-pre-wrap break-words rounded-md bg-slate-900/70 p-2 text-[11px] text-slate-300">
-                    {JSON.stringify(log.details, null, 2)}
-                  </pre>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[11px] text-cyan-200">
+                      原始数据
+                    </summary>
+                    <pre className="mt-2 whitespace-pre-wrap wrap-break-word rounded-md bg-slate-900/70 p-2 text-[11px] text-slate-300">
+                      {JSON.stringify(log.details, null, 2)}
+                    </pre>
+                  </details>
                 ) : null}
               </div>
             ))}
