@@ -1,5 +1,6 @@
 import { Calendar, MapPin, Users } from "lucide-react";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -39,6 +40,8 @@ const statusLabelMap = {
   ongoing: "进行中",
   finished: "已结束",
 } as const;
+
+const ADMIN_MODE_COOKIE = "ustc_tta_admin_mode";
 
 export default async function MatchDetailPage({
   params,
@@ -101,9 +104,13 @@ export default async function MatchDetailPage({
 
   if (!match) notFound();
 
+  const cookieStore = await cookies();
+  const adminMode = cookieStore.get(ADMIN_MODE_COOKIE)?.value;
+  const adminViewEnabled = adminMode !== "user";
+
   const now = new Date();
   const isCreator = currentUser?.id === match.createdBy;
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = currentUser?.role === "admin" && adminViewEnabled;
   const canManageGrouping = Boolean(currentUser && (isCreator || isAdmin));
   const canRegister =
     Boolean(currentUser) &&
