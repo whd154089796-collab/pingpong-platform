@@ -5,6 +5,7 @@ import {
   adminDashboardAction,
   type AdminDashboardState,
 } from "@/app/admin/actions";
+import { normalizeAvatarUrl } from "@/lib/utils";
 
 const initialAdminDashboardState: AdminDashboardState = {
   unlocked: false,
@@ -483,10 +484,10 @@ export default function AdminDashboardClient() {
           {pagedUsers.map((user) => (
             <div
               key={user.id}
-              className="rounded-xl border border-slate-700 bg-slate-800/40 p-4"
+              className="rounded-xl border border-slate-700 bg-slate-800/40 p-3"
             >
               <div className="flex flex-wrap items-center gap-3">
-                <label className="mr-1 flex items-center gap-2 text-xs text-slate-300">
+                <label className="flex items-center gap-2 text-xs text-slate-300">
                   <input
                     type="checkbox"
                     checked={selectedUserIdSet.has(user.id)}
@@ -495,11 +496,11 @@ export default function AdminDashboardClient() {
                   />
                   选择
                 </label>
-                <div className="h-10 w-10 overflow-hidden rounded-full bg-slate-700">
-                  {user.avatarUrl ? (
+                <div className="h-9 w-9 overflow-hidden rounded-full bg-slate-700">
+                  {normalizeAvatarUrl(user.avatarUrl) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={user.avatarUrl}
+                      src={normalizeAvatarUrl(user.avatarUrl) ?? ""}
                       alt={user.nickname}
                       className="h-full w-full object-cover"
                     />
@@ -510,75 +511,90 @@ export default function AdminDashboardClient() {
                   )}
                 </div>
 
-                <div className="min-w-65 flex-1">
-                  <p className="text-sm font-medium text-slate-100">
-                    {user.nickname}
-                    <span className="ml-2 text-xs text-slate-400">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-100">
+                      {user.nickname}
+                    </p>
+                    <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[11px] text-slate-300">
                       {user.role === "admin" ? "管理员" : "普通用户"}
                     </span>
                     {user.isBanned ? (
-                      <span className="ml-2 text-xs text-rose-300">已封禁</span>
+                      <span className="rounded-full border border-rose-500/60 px-2 py-0.5 text-[11px] text-rose-300">
+                        已封禁
+                      </span>
                     ) : null}
+                  </div>
+                  <p className="text-xs text-slate-300 truncate">
+                    {user.email}
                   </p>
-                  <p className="text-xs text-slate-300">{user.email}</p>
-                  <p className="text-xs text-slate-400">
-                    最后活动：{formatDateTime(user.lastActivityAt)}
+                  <p className="text-xs text-slate-400 truncate">
+                    简介：{user.bio?.trim() ? user.bio : "暂无简介"}
                   </p>
+                </div>
+
+                <div className="text-[11px] text-slate-400">
+                  最后活动：{formatDateTime(user.lastActivityAt)}
                 </div>
               </div>
 
-              <form
-                action={formAction}
-                className="mt-3 grid gap-3 md:grid-cols-3"
-              >
-                <input type="hidden" name="csrfToken" defaultValue="" />
-                <input type="hidden" name="intent" value="updateUser" />
-                <input type="hidden" name="userId" value={user.id} />
-                <input
-                  aria-label="昵称"
-                  name="nickname"
-                  defaultValue={user.nickname}
-                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                />
-                <input
-                  name="avatarUrl"
-                  defaultValue={user.avatarUrl ?? ""}
-                  placeholder="头像 URL"
-                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                />
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-md border border-cyan-500/40 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
-                >
-                  保存资料
-                </button>
-              </form>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-cyan-200 hover:text-cyan-100">
+                  编辑资料与权限
+                </summary>
 
-              <form
-                action={formAction}
-                className="mt-3 flex flex-wrap items-center gap-3"
-              >
-                <input type="hidden" name="csrfToken" defaultValue="" />
-                <input type="hidden" name="intent" value="updateUserRole" />
-                <input type="hidden" name="userId" value={user.id} />
-                <select
-                  aria-label="角色"
-                  name="role"
-                  defaultValue={user.role}
-                  className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                <div className="mt-2 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                  <form action={formAction} className="contents">
+                    <input type="hidden" name="csrfToken" defaultValue="" />
+                    <input type="hidden" name="intent" value="updateUser" />
+                    <input type="hidden" name="userId" value={user.id} />
+                    <input
+                      aria-label="昵称"
+                      name="nickname"
+                      defaultValue={user.nickname}
+                      className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+                    />
+                    <input
+                      name="avatarUrl"
+                      defaultValue={user.avatarUrl ?? ""}
+                      placeholder="头像 URL"
+                      className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs text-slate-100"
+                    />
+                    <button
+                      type="submit"
+                      disabled={pending}
+                      className="rounded-md border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
+                    >
+                      保存资料
+                    </button>
+                  </form>
+                </div>
+
+                <form
+                  action={formAction}
+                  className="mt-2 flex flex-wrap items-center gap-2"
                 >
-                  <option value="user">普通用户</option>
-                  <option value="admin">管理员</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-md border border-amber-500/40 px-3 py-2 text-sm text-amber-200 hover:bg-amber-500/10 disabled:opacity-60"
-                >
-                  更新权限
-                </button>
-              </form>
+                  <input type="hidden" name="csrfToken" defaultValue="" />
+                  <input type="hidden" name="intent" value="updateUserRole" />
+                  <input type="hidden" name="userId" value={user.id} />
+                  <select
+                    aria-label="角色"
+                    name="role"
+                    defaultValue={user.role}
+                    className="rounded-lg border border-slate-600 bg-slate-900 px-2.5 py-2 text-xs text-slate-100"
+                  >
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="rounded-md border border-amber-500/40 px-3 py-2 text-xs text-amber-200 hover:bg-amber-500/10 disabled:opacity-60"
+                  >
+                    更新权限
+                  </button>
+                </form>
+              </details>
             </div>
           ))}
         </div>

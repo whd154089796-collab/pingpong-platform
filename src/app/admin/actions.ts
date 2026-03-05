@@ -21,6 +21,7 @@ export type AdminDashboardUser = {
   id: string
   email: string
   nickname: string
+  bio: string | null
   avatarUrl: string | null
   role: 'user' | 'admin'
   isBanned: boolean
@@ -51,6 +52,7 @@ type AdminDashboardUserRow = {
   id: string
   email: string
   nickname: string
+  bio: string | null
   avatarUrl: string | null
   role: 'user' | 'admin'
   isBanned: boolean
@@ -296,6 +298,7 @@ async function fetchAdminDashboardData() {
         id: true,
         email: true,
         nickname: true,
+        bio: true,
         avatarUrl: true,
         role: true,
         isBanned: true,
@@ -361,6 +364,7 @@ async function fetchAdminDashboardData() {
       id: user.id,
       email: user.email,
       nickname: user.nickname,
+      bio: user.bio,
       avatarUrl: user.avatarUrl,
       role: user.role,
       isBanned: user.isBanned,
