@@ -13,6 +13,7 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { getPendingInviteCountForUser } from "@/lib/doubles";
 import AdminModeToggle from "@/components/layout/AdminModeToggle";
+import { normalizeAvatarUrl } from "@/lib/utils";
 
 const ADMIN_MODE_COOKIE = "ustc_tta_admin_mode";
 
@@ -55,6 +56,7 @@ export default async function Sidebar() {
   const avatarFallback = (
     currentUser?.nickname?.trim()?.[0] ?? "?"
   ).toUpperCase();
+  const avatarUrl = normalizeAvatarUrl(currentUser?.avatarUrl);
 
   return (
     <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:z-30 md:flex md:w-72 md:flex-col">
@@ -67,10 +69,10 @@ export default async function Sidebar() {
               aria-label="查看个人中心"
             >
               <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-500/15 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/25">
-                {currentUser.avatarUrl ? (
+                {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={currentUser.avatarUrl}
+                    src={avatarUrl}
                     alt={currentUser.nickname}
                     className="h-full w-full object-cover"
                   />

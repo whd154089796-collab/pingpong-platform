@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Menu, Trophy } from "lucide-react";
 import { useState } from "react";
+import { normalizeAvatarUrl } from "@/lib/utils";
 
 type Props = {
   isLoggedIn: boolean;
@@ -21,9 +22,13 @@ export default function Header({
   adminViewEnabled = true,
 }: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const avatarFallback = (
     currentUser?.nickname?.trim()?.[0] ?? "?"
   ).toUpperCase();
+  const avatarUrl = !avatarFailed
+    ? normalizeAvatarUrl(currentUser?.avatarUrl)
+    : null;
   const mobileNav = [
     { href: "/", label: "首页" },
     { href: "/matchs", label: "比赛大厅" },
@@ -66,12 +71,13 @@ export default function Header({
             className="mb-3 flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-slate-800/70 px-3 py-2"
           >
             <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-500/15 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-400/25">
-              {currentUser.avatarUrl ? (
+              {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={currentUser.avatarUrl}
+                  src={avatarUrl}
                   alt={currentUser.nickname}
                   className="h-full w-full object-cover"
+                  onError={() => setAvatarFailed(true)}
                 />
               ) : (
                 <span aria-hidden="true">{avatarFallback}</span>

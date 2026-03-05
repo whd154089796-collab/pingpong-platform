@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Calendar, PencilLine, ShieldCheck, Trophy } from "lucide-react";
+import { normalizeAvatarUrl } from "@/lib/utils";
 import {
   CartesianGrid,
   Line,
@@ -64,6 +65,8 @@ export default function ProfileOverview({
   const [xAxisMode, setXAxisMode] = useState<"date" | "nth">("date");
   const [copied, setCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const avatarUrl = !avatarFailed ? normalizeAvatarUrl(user.avatarUrl) : null;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 640px)");
@@ -94,12 +97,13 @@ export default function ProfileOverview({
       <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-slate-700 text-xl font-bold text-cyan-100 sm:h-20 sm:w-20 sm:text-3xl">
-            {user.avatarUrl ? (
+            {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={user.avatarUrl}
+                src={avatarUrl}
                 alt={`${user.nickname}头像`}
                 className="h-full w-full object-cover"
+                onError={() => setAvatarFailed(true)}
               />
             ) : (
               user.nickname[0]
