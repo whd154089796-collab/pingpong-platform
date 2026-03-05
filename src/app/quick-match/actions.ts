@@ -17,8 +17,8 @@ const QUICK_MATCH_TIMEOUT_MS = 24 * 60 * 60 * 1000
 const QUICK_MATCH_ACTIVE_DESC = '由快速比赛功能创建'
 const QUICK_MATCH_VOID_DESC = '由快速比赛功能创建（已作废）'
 
-function isQuickMatchTitle(title: string) {
-  return title.startsWith(QUICK_MATCH_TITLE_PREFIX)
+function isQuickMatchMatch(match: { title: string; isQuickMatch?: boolean | null }) {
+  return match.isQuickMatch ?? match.title.startsWith(QUICK_MATCH_TITLE_PREFIX)
 }
 
 function isExpired(createdAt: Date) {
@@ -208,6 +208,7 @@ export async function reportQuickMatchResultAction(
         registrationDeadline: now,
         maxParticipants: 2,
         location: '快速比赛',
+        isQuickMatch: true,
         createdBy: currentUser.id,
       },
       select: { id: true },
@@ -270,7 +271,7 @@ export async function confirmQuickMatchResultAction(
   })
 
   if (!result) return { error: '赛果不存在。' }
-  if (!isQuickMatchTitle(result.match.title)) return { error: '不是快速比赛赛果。' }
+  if (!isQuickMatchMatch(result.match)) return { error: '不是快速比赛赛果。' }
 
   if (result.confirmed) {
     return { success: '该赛果已确认。' }
@@ -303,7 +304,7 @@ export async function confirmQuickMatchResultAction(
         include: { match: true },
       })
       if (!latest) throw new Error('赛果不存在。')
-      if (!isQuickMatchTitle(latest.match.title)) throw new Error('不是快速比赛赛果。')
+      if (!isQuickMatchMatch(latest.match)) throw new Error('不是快速比赛赛果。')
       if (latest.confirmed) return
 
       if (isExpired(latest.createdAt)) {
@@ -358,7 +359,7 @@ export async function rejectQuickMatchResultAction(
   })
 
   if (!result) return { error: '赛果不存在。' }
-  if (!isQuickMatchTitle(result.match.title)) return { error: '不是快速比赛赛果。' }
+  if (!isQuickMatchMatch(result.match)) return { error: '不是快速比赛赛果。' }
   if (result.confirmed) return { error: '已确认赛果不可拒绝。' }
 
   const isOpponent =
@@ -390,16 +391,7 @@ export async function cleanupExpiredQuickResultsForUser(userId: string) {
       },
       OR: [{ winnerTeamIds: { has: userId } }, { loserTeamIds: { has: userId } }],
       match: {
-        AND: [
-          {
-            title: {
-              startsWith: QUICK_MATCH_TITLE_PREFIX,
-            },
-          },
-          {
-            description: QUICK_MATCH_ACTIVE_DESC,
-          },
-        ],
+        isQuickMatch: true,
       },
     },
     select: {

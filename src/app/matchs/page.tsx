@@ -9,8 +9,6 @@ const statusLabelMap = {
   finished: "已结束",
 } as const;
 
-const QUICK_MATCH_TITLE_PREFIX = "[快速比赛]";
-
 type MatchesPageProps = {
   searchParams?:
     | {
@@ -46,9 +44,7 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
           : {},
         {
           NOT: {
-            title: {
-              startsWith: QUICK_MATCH_TITLE_PREFIX,
-            },
+            isQuickMatch: true,
           },
         },
       ],

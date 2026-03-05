@@ -5,9 +5,7 @@ import QuickMatchPanel from "@/components/quick-match/QuickMatchPanel";
 import { cleanupExpiredQuickResultsForUser } from "@/app/quick-match/actions";
 import { toClubId } from "@/lib/club-id";
 
-const QUICK_MATCH_TITLE_PREFIX = "[快速比赛]";
 const QUICK_MATCH_TIMEOUT_HOURS = 24;
-const QUICK_MATCH_ACTIVE_DESC = "由快速比赛功能创建";
 const QUICK_MATCH_VOID_DESC = "由快速比赛功能创建（已作废）";
 const QUICK_MATCH_HISTORY_DAYS = 7;
 
@@ -42,16 +40,7 @@ export default async function QuickMatchPage() {
           { loserTeamIds: { has: currentUser.id } },
         ],
         match: {
-          AND: [
-            {
-              title: {
-                startsWith: QUICK_MATCH_TITLE_PREFIX,
-              },
-            },
-            {
-              description: QUICK_MATCH_ACTIVE_DESC,
-            },
-          ],
+          isQuickMatch: true,
         },
       },
       include: {
@@ -87,9 +76,7 @@ export default async function QuickMatchPage() {
           { loserTeamIds: { has: currentUser.id } },
         ],
         match: {
-          title: {
-            startsWith: QUICK_MATCH_TITLE_PREFIX,
-          },
+          isQuickMatch: true,
         },
       },
       include: {

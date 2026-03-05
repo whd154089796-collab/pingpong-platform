@@ -119,6 +119,7 @@ model Match {
   description          String?
   dateTime             DateTime
   location             String?
+  isQuickMatch         Boolean           @default(false)
   type                 MatchType
   status               MatchStatus       @default(registration)
   maxParticipants      Int
@@ -136,6 +137,8 @@ model Match {
   eloHistory     EloHistory[]
   reviews        Review[]
   groupingResult MatchGrouping?
+
+  @@index([isQuickMatch])
 }
 
 model Registration {
