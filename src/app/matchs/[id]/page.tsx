@@ -11,6 +11,7 @@ import GroupingResultSection from "@/components/match/detail/GroupingResultSecti
 import GroupsOverviewSection from "@/components/match/detail/GroupsOverviewSection";
 import MyProgressSection from "@/components/match/detail/MyProgressSection";
 import RegisteredPlayersSection from "@/components/match/detail/RegisteredPlayersSection";
+import ExportCertificateSection from "@/components/match/detail/ExportCertificateSection";
 import BackLinkButton from "@/components/navigation/BackLinkButton";
 import {
   getDoublesTeamForUser,
@@ -34,6 +35,7 @@ import {
   extractPageParam,
   paginateItems,
 } from "@/lib/match-detail-page";
+import { evaluateCertificateEligibility } from "@/lib/certificate";
 
 const statusLabelMap = {
   registration: "报名中",
@@ -107,6 +109,36 @@ export default async function MatchDetailPage({
   const cookieStore = await cookies();
   const adminMode = cookieStore.get(ADMIN_MODE_COOKIE)?.value;
   const adminViewEnabled = adminMode !== "user";
+
+  const [userIdentity, existingCertificate] = currentUser
+    ? await Promise.all([
+        prisma.userIdentity.findUnique({
+          where: { userId: currentUser.id },
+        }),
+        prisma.participationCertificate.findUnique({
+          where: {
+            matchId_userId: {
+              matchId: match.id,
+              userId: currentUser.id,
+            },
+          },
+        }),
+      ])
+    : [null, null];
+
+  const certificateEligibility = currentUser
+    ? evaluateCertificateEligibility({
+        match: {
+          status: match.status,
+          type: match.type,
+          groupingResult: match.groupingResult,
+          groupingGeneratedAt: match.groupingGeneratedAt,
+          registrations: match.registrations,
+          results: match.results,
+        },
+        currentUserId: currentUser.id,
+      })
+    : null;
 
   const now = new Date();
   const isCreator = currentUser?.id === match.createdBy;
@@ -557,6 +589,17 @@ export default async function MatchDetailPage({
             filledKnockoutRounds={filledKnockoutRounds}
           />
         )}
+
+      {currentUser && certificateEligibility ? (
+        <ExportCertificateSection
+          matchId={match.id}
+          matchTitle={match.title}
+          currentUserEmail={currentUser.email}
+          identityBound={Boolean(userIdentity)}
+          eligibility={certificateEligibility}
+          existingCertificateNo={existingCertificate?.certificateNo ?? null}
+        />
+      ) : null}
 
       {isAdmin && (
         <AdminResultsSection
