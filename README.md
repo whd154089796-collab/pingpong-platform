@@ -87,3 +87,7 @@ pm2 start npm --name "kedapp" -- run start
 pm2 stop kedapp
 
 pm2 start kedapp
+
+建议不要用neon插件，会在你VScode环境里注入环境变量，导致你怎么修改.env文件都没有用。笔者曾经修改几个小时才发现是插件问题
+
+用set DATABASE_URL检查目前环境，可以对比系统CMD和VScode的（我就是这样找出来VScode插件问题的）

@@ -4,6 +4,12 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   poweredByHeader: false,
+  outputFileTracingIncludes: {
+    "/api/matchs/[id]/certificate": [
+      "./assets/fonts/**",
+      "./node_modules/pdfkit/js/data/**",
+    ],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

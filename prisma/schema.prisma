@@ -93,6 +93,10 @@ model User {
   adminTrustedDevices AdminTrustedDevice[]
   identity            UserIdentity?
   certificates        ParticipationCertificate[]
+  doublesTeamsCreated MatchDoublesTeam[]    @relation("DoublesTeamCreator")
+  doublesTeamMembers  MatchDoublesTeamMember[]
+  doublesInvitesSent  MatchDoublesInvite[]  @relation("DoublesInviteInviter")
+  doublesInvitesReceived MatchDoublesInvite[] @relation("DoublesInviteInvitee")
 }
 
 model AdminTrustedDevice {
@@ -140,8 +144,62 @@ model Match {
   reviews        Review[]
   groupingResult MatchGrouping?
   certificates   ParticipationCertificate[]
+  doublesTeams   MatchDoublesTeam[]
+  doublesTeamMembers MatchDoublesTeamMember[]
+  doublesInvites MatchDoublesInvite[]
 
   @@index([isQuickMatch])
+}
+
+model MatchDoublesTeam {
+  id          String    @id @default(cuid())
+  matchId     String    @map("match_id")
+  createdById String    @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  registeredAt DateTime? @map("registered_at")
+
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  creator User  @relation("DoublesTeamCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members MatchDoublesTeamMember[]
+
+  @@index([matchId, createdAt])
+  @@map("match_doubles_team")
+}
+
+model MatchDoublesTeamMember {
+  id      String @id @default(cuid())
+  teamId  String @map("team_id")
+  matchId String @map("match_id")
+  userId  String @map("user_id")
+  slot    Int
+
+  team  MatchDoublesTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  match Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, slot])
+  @@unique([teamId, userId])
+  @@index([matchId, userId])
+  @@map("match_doubles_team_member")
+}
+
+model MatchDoublesInvite {
+  id        String   @id @default(cuid())
+  matchId   String   @map("match_id")
+  inviterId String   @map("inviter_id")
+  inviteeId String   @map("invitee_id")
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  inviter User  @relation("DoublesInviteInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User  @relation("DoublesInviteInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, status])
+  @@index([inviteeId, status])
+  @@index([inviterId, status])
+  @@map("match_doubles_invite")
 }
 
 model UserIdentity {
