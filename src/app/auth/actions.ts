@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword, verifyPassword } from '@/lib/password'
 import { hitRateLimit } from '@/lib/rate-limit'
-import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
+import { sendAzureEmail } from '@/lib/azure-email'
 import {
   createSessionToken,
   SESSION_COOKIE_NAME,
@@ -72,69 +72,45 @@ async function checkAuthRateLimit(action: 'register' | 'login' | 'resend', email
 }
 
 async function sendVerificationEmail(email: string, nickname: string, token: string) {
-  const { apiKey: resendApiKey, from } = getResendConfig()
-
   const verifyUrl = `${getBaseUrl()}/auth/verify?token=${encodeURIComponent(token)}`
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: email,
-      subject: 'USTC TTA 邮箱验证',
-      html: `
-        <div style="font-family: Arial, sans-serif;line-height:1.7;">
-          <h2>你好，${nickname}</h2>
-          <p>请点击下方按钮完成 USTC TTA 账号邮箱验证：</p>
-          <p><a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#06b6d4;color:#fff;text-decoration:none;border-radius:8px;">验证邮箱并激活账号</a></p>
-          <p>如果按钮不可用，请复制以下链接到浏览器打开：</p>
-          <p>${verifyUrl}</p>
-          <p>此链接 30 分钟内有效。</p>
-        </div>
-      `,
-    }),
+  await sendAzureEmail({
+    to: email,
+    subject: 'USTC TTA 邮箱验证',
+    html: `
+      <div style="font-family: Arial, sans-serif;line-height:1.7;">
+        <h2>你好，${nickname}</h2>
+        <p>请点击下方按钮完成 USTC TTA 账号邮箱验证：</p>
+        <p><a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#06b6d4;color:#fff;text-decoration:none;border-radius:8px;">验证邮箱并激活账号</a></p>
+        <p>如果按钮不可用，请复制以下链接到浏览器打开：</p>
+        <p>${verifyUrl}</p>
+        <p>此链接 30 分钟内有效。</p>
+      </div>
+    `,
+    context: 'sendVerificationEmail',
+    fallbackMessage: '邮件发送失败，请稍后重试。',
   })
-
-  await assertResendResponseOk(response, 'sendVerificationEmail', '邮件发送失败，请稍后重试。')
 }
 
 async function sendPasswordResetEmail(email: string, nickname: string, token: string) {
-  const { apiKey: resendApiKey, from } = getResendConfig()
-
   const resetUrl = `${getBaseUrl()}/auth/reset-password?token=${encodeURIComponent(token)}`
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: email,
-      subject: 'USTC TTA 重置密码',
-      html: `
-        <div style="font-family: Arial, sans-serif;line-height:1.7;">
-          <h2>你好，${nickname}</h2>
-          <p>我们收到了你的重置密码请求，请点击下方按钮继续：</p>
-          <p><a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#06b6d4;color:#fff;text-decoration:none;border-radius:8px;">前往重置密码</a></p>
-          <p>如果按钮不可用，请复制以下链接到浏览器打开：</p>
-          <p>${resetUrl}</p>
-          <p>此链接 30 分钟内有效。</p>
-        </div>
-      `,
-    }),
+  await sendAzureEmail({
+    to: email,
+    subject: 'USTC TTA 重置密码',
+    html: `
+      <div style="font-family: Arial, sans-serif;line-height:1.7;">
+        <h2>你好，${nickname}</h2>
+        <p>我们收到了你的重置密码请求，请点击下方按钮继续：</p>
+        <p><a href="${resetUrl}" style="display:inline-block;padding:10px 16px;background:#06b6d4;color:#fff;text-decoration:none;border-radius:8px;">前往重置密码</a></p>
+        <p>如果按钮不可用，请复制以下链接到浏览器打开：</p>
+        <p>${resetUrl}</p>
+        <p>此链接 30 分钟内有效。</p>
+      </div>
+    `,
+    context: 'sendPasswordResetEmail',
+    fallbackMessage: '重置密码邮件发送失败，请稍后重试。',
   })
-
-  await assertResendResponseOk(
-    response,
-    'sendPasswordResetEmail',
-    '重置密码邮件发送失败，请稍后重试。',
-  )
 }
 
 async function createEmailToken(userId: string, ttlMs: number) {

@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
 import { hashPassword } from '@/lib/password'
 import { shouldUseSecureCookies } from '@/lib/session'
-import { assertResendResponseOk, getResendConfig } from '@/lib/resend'
+import { sendAzureEmail } from '@/lib/azure-email'
 import { getAuditContext, writeAuditLog } from '@/lib/audit-log'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
@@ -122,37 +122,23 @@ function getBaseUrl() {
 }
 
 async function sendAdminReauthEmail(email: string, nickname: string, code: string) {
-  const { apiKey: resendApiKey, from } = getResendConfig()
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: email,
-      subject: 'USTC TTA 管理员二次验证',
-      html: `
-        <div style="font-family: Arial, sans-serif;line-height:1.7;">
-          <h2>你好，${nickname}</h2>
-          <p>你正在进行 USTC TTA 管理员控制台二次验证。</p>
-          <p>验证码为：</p>
-          <p style="font-size:24px;font-weight:700;letter-spacing:4px;">${code}</p>
-          <p>验证码 ${Math.floor(ADMIN_EMAIL_CHALLENGE_TTL_SECONDS / 60)} 分钟内有效，请勿泄露给他人。</p>
-          <p>若非本人操作，请忽略此邮件并尽快修改账号密码。</p>
-          <p style="color:#64748b;font-size:12px;">来源：${getBaseUrl()}</p>
-        </div>
-      `,
-    }),
+  await sendAzureEmail({
+    to: email,
+    subject: 'USTC TTA 管理员二次验证',
+    html: `
+      <div style="font-family: Arial, sans-serif;line-height:1.7;">
+        <h2>你好，${nickname}</h2>
+        <p>你正在进行 USTC TTA 管理员控制台二次验证。</p>
+        <p>验证码为：</p>
+        <p style="font-size:24px;font-weight:700;letter-spacing:4px;">${code}</p>
+        <p>验证码 ${Math.floor(ADMIN_EMAIL_CHALLENGE_TTL_SECONDS / 60)} 分钟内有效，请勿泄露给他人。</p>
+        <p>若非本人操作，请忽略此邮件并尽快修改账号密码。</p>
+        <p style="color:#64748b;font-size:12px;">来源：${getBaseUrl()}</p>
+      </div>
+    `,
+    context: 'sendAdminReauthEmail',
+    fallbackMessage: '管理员验证邮件发送失败，请稍后重试。',
   })
-
-  await assertResendResponseOk(
-    response,
-    'sendAdminReauthEmail',
-    '管理员验证邮件发送失败，请稍后重试。',
-  )
 }
 
 function getReauthSecret() {

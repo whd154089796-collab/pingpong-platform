@@ -12,6 +12,7 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.2.0",
     "@prisma/client": "^6.19.2",
     "@radix-ui/react-popover": "^1.1.15",
     "cloudinary": "^2.9.0",
@@ -25,7 +26,6 @@
     "react-day-picker": "^9.13.2",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
-    "resend": "^6.9.2",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },

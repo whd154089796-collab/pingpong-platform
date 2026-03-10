@@ -26,8 +26,8 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: blob: https://res.cloudinary.com",
       "font-src 'self' data:",
       isProd
-        ? "connect-src 'self' https://api.resend.com"
-        : "connect-src 'self' https://api.resend.com ws: wss: http: https:",
+        ? "connect-src 'self'"
+        : "connect-src 'self' ws: wss: http: https:",
       "frame-src 'none'",
       ...(isProd ? ["upgrade-insecure-requests"] : []),
     ].join('; ')

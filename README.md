@@ -65,11 +65,11 @@ cd /www/wwwroot/pingpongclub
 
 git pull origin master
 
-# 2. 如果你修改了 .env（比如新加了 RESEND_API_KEY），请手动更新服务器的 .env
+# 2. 如果你修改了 .env（比如新加了 AZURE_COMMUNICATION_CONNECTION_STRING），请手动更新服务器的 .env
 
 # nano .env (确认里面有新的 KEY 后 Ctrl+O 保存，Ctrl+X 退出)
 
-# 3. 重新安装依赖（如果你新装了 resend 包）
+# 3. 重新安装依赖（如果你新装了 Azure 邮件 SDK 包）
 
 npm install
 npx prisma migrate deploy
