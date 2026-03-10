@@ -12,7 +12,7 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@azure/communication-email": "^1.2.0",
+    "@azure/communication-email": "^1.0.0",
     "@prisma/client": "^6.19.2",
     "@radix-ui/react-popover": "^1.1.15",
     "cloudinary": "^2.9.0",
