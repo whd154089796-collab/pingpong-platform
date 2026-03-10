@@ -3,6 +3,7 @@ import Image from "next/image";
 import { TrendingUp } from "lucide-react";
 import { MatchStatus } from "@prisma/client";
 import MatchCard from "@/components/match/MatchCard";
+import EloTrendChart from "@/components/home/EloTrendChart";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -11,21 +12,6 @@ const statusLabelMap: Record<MatchStatus, "报名中" | "进行中" | "已结束
   ongoing: "进行中",
   finished: "已结束",
 };
-
-function buildSparkline(values: number[], width = 360, height = 88) {
-  if (values.length <= 1) return "";
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(max - min, 1);
-
-  const points = values.map((v, index) => {
-    const x = (index / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x},${y}`;
-  });
-
-  return `M ${points.join(" L ")}`;
-}
 
 function stageLabel(input: {
   status: MatchStatus;
@@ -95,7 +81,8 @@ export default async function Home() {
       results: Array<{ winnerTeamIds: string[]; loserTeamIds: string[] }>;
     };
   }> = [];
-  let eloSeries: number[] = [];
+  let eloPoints: Array<{ elo: number; createdAt: string }> = [];
+  let eloValues: number[] = [];
   let eloDelta7d = 0;
 
   if (currentUser) {
@@ -143,14 +130,16 @@ export default async function Home() {
     myRegistrations = registrations;
 
     const asc = [...histories].reverse();
-    eloSeries = asc.map((item) => item.eloAfter);
-    if (eloSeries.length > 1) {
-      const baseline = eloSeries[Math.max(0, eloSeries.length - 8)];
-      eloDelta7d = eloSeries[eloSeries.length - 1] - baseline;
+    eloValues = asc.map((item) => item.eloAfter);
+    eloPoints = asc.map((item) => ({
+      elo: item.eloAfter,
+      createdAt: item.createdAt.toISOString(),
+    }));
+    if (eloValues.length > 1) {
+      const baseline = eloValues[Math.max(0, eloValues.length - 8)];
+      eloDelta7d = eloValues[eloValues.length - 1] - baseline;
     }
   }
-
-  const sparkPath = buildSparkline(eloSeries);
 
   return (
     <div className="space-y-6 sm:space-y-8 md:space-y-10">
@@ -256,33 +245,14 @@ export default async function Home() {
                     最近 ELO 走势
                   </span>
                   <span>
-                    {eloSeries.length > 0
-                      ? `最新 ${eloSeries[eloSeries.length - 1]}`
+                    {eloValues.length > 0
+                      ? `最新 ${eloValues[eloValues.length - 1]}`
                       : "暂无数据"}
                   </span>
                 </div>
-                <svg
-                  viewBox="0 0 360 88"
-                  className="h-20 w-full sm:h-24"
-                  role="img"
-                  aria-label="最近 ELO 走势"
-                >
-                  <path
-                    d="M0 87 H360"
-                    stroke="rgba(148,163,184,0.25)"
-                    strokeWidth="1"
-                    fill="none"
-                  />
-                  {sparkPath ? (
-                    <path
-                      d={sparkPath}
-                      stroke="rgb(34,211,238)"
-                      strokeWidth="3"
-                      fill="none"
-                      strokeLinecap="round"
-                    />
-                  ) : null}
-                </svg>
+                <div className="h-20 w-full sm:h-24">
+                  <EloTrendChart points={eloPoints} />
+                </div>
               </div>
             </div>
           ) : (

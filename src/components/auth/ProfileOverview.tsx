@@ -19,6 +19,13 @@ type EloPoint = {
   createdAt: string;
 };
 
+type ChartPoint = {
+  index: number;
+  elo: number;
+  dateLabel: string;
+  nthLabel: string;
+};
+
 type RecentResult = {
   id: string;
   matchId: string;
@@ -76,18 +83,25 @@ export default function ProfileOverview({
     return () => mediaQuery.removeEventListener("change", update);
   }, []);
 
-  const chartData = useMemo(
+  const chartData = useMemo<ChartPoint[]>(
     () =>
       eloPoints.map((item, index) => ({
+        index,
         elo: item.eloAfter,
-        date: new Date(item.createdAt).toLocaleDateString("zh-CN", {
+        dateLabel: new Date(item.createdAt).toLocaleDateString("zh-CN", {
           month: "2-digit",
           day: "2-digit",
         }),
-        nth: `第${index + 1}场`,
+        nthLabel: `第${index + 1}场`,
       })),
     [eloPoints],
   );
+
+  const getXAxisLabel = (value: number) => {
+    const point = chartData[value];
+    if (!point) return "";
+    return xAxisMode === "date" ? point.dateLabel : point.nthLabel;
+  };
 
   const latestElo =
     chartData.length > 0 ? chartData[chartData.length - 1].elo : user.eloRating;
@@ -229,11 +243,16 @@ export default function ProfileOverview({
                       strokeDasharray="3 3"
                     />
                     <XAxis
-                      dataKey={xAxisMode === "date" ? "date" : "nth"}
+                      dataKey="index"
+                      type="number"
                       tick={{ fill: "rgb(148 163 184)", fontSize: 11 }}
                       axisLine={{ stroke: "rgba(148,163,184,0.35)" }}
                       tickLine={{ stroke: "rgba(148,163,184,0.35)" }}
+                      domain={[0, Math.max(chartData.length - 1, 0)]}
+                      allowDecimals={false}
+                      tickFormatter={getXAxisLabel}
                       minTickGap={18}
+                      interval="preserveStartEnd"
                     />
                     <YAxis
                       width={42}
@@ -270,9 +289,16 @@ export default function ProfileOverview({
                         margin: 0,
                       }}
                       wrapperStyle={{ zIndex: 20 }}
-                      labelFormatter={(value) =>
-                        xAxisMode === "date" ? `日期：${value}` : `${value}`
-                      }
+                      labelFormatter={(value, payload) => {
+                        const point = payload?.[0]?.payload as
+                          | ChartPoint
+                          | undefined;
+                        if (!point) return "";
+                        return xAxisMode === "date"
+                          ? `日期：${point.dateLabel}`
+                          : point.nthLabel;
+                      }}
+                      formatter={(value: number) => [`${value}`, "ELO"]}
                     />
                     <Line
                       type="monotone"
