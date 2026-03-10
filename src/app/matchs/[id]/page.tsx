@@ -684,7 +684,7 @@ export default async function MatchDetailPage({
         currentParticipantsPage={currentParticipantsPage}
         shouldOpenParticipants={shouldOpenParticipants}
         isAdmin={isAdmin}
-        canRemove={!groupingPayload && match.results.length === 0}
+        canRemove={isAdmin}
         buildHref={(page) =>
           buildMatchHref({
             playersPage: page,

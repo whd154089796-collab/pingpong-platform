@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { generateGroupingPayload } from '@/lib/tournament'
+import { isMatchAllResultsFinished } from '@/lib/match-status'
 import { settleSinglesElo, settleTeamElo } from '@/lib/elo'
 import { validateCsrfToken } from '@/lib/csrf'
 import { getAuditContext, writeAuditLog } from '@/lib/audit-log'
@@ -1396,6 +1397,43 @@ export async function confirmMatchResultAction(matchId: string, resultId: string
     return { error: '确认失败。' }
   }
 
+  const latestMatch = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: {
+      id: true,
+      status: true,
+      format: true,
+      groupingGeneratedAt: true,
+      groupingResult: { select: { payload: true } },
+      results: {
+        select: {
+          winnerTeamIds: true,
+          loserTeamIds: true,
+          confirmed: true,
+          score: true,
+          createdAt: true,
+          resultVerifiedAt: true,
+        },
+      },
+    },
+  })
+
+  if (latestMatch && latestMatch.status !== MatchStatus.finished) {
+    const shouldFinish = isMatchAllResultsFinished({
+      format: latestMatch.format,
+      groupingGeneratedAt: latestMatch.groupingGeneratedAt,
+      groupingResult: latestMatch.groupingResult,
+      results: latestMatch.results,
+    })
+
+    if (shouldFinish) {
+      await prisma.match.update({
+        where: { id: latestMatch.id },
+        data: { status: MatchStatus.finished },
+      })
+    }
+  }
+
   revalidatePath('/rankings')
   revalidatePath('/profile')
   revalidatePath(`/matchs/${matchId}`)
@@ -1459,7 +1497,7 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
             { loserTeamIds: { has: userId } },
           ],
         },
-        select: { id: true },
+        select: { id: true, confirmed: true },
       },
     },
   })
@@ -1473,12 +1511,47 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
     return { error: '该用户不在参赛名单中。' }
   }
 
-  if (match.groupingResult) {
-    return { error: '已生成分组后不可移除参赛者。' }
-  }
+  const pendingResultIds = match.results
+    .filter((result) => !result.confirmed)
+    .map((result) => result.id)
 
-  if (match.results.length > 0) {
-    return { error: '该选手已有赛果记录，不可移除。' }
+  const updateMatchFinishedStatus = async () => {
+    const latestMatch = await prisma.match.findUnique({
+      where: { id: matchId },
+      select: {
+        id: true,
+        status: true,
+        format: true,
+        groupingGeneratedAt: true,
+        groupingResult: { select: { payload: true } },
+        results: {
+          select: {
+            winnerTeamIds: true,
+            loserTeamIds: true,
+            confirmed: true,
+            score: true,
+            createdAt: true,
+            resultVerifiedAt: true,
+          },
+        },
+      },
+    })
+
+    if (!latestMatch || latestMatch.status === MatchStatus.finished) return
+
+    const shouldFinish = isMatchAllResultsFinished({
+      format: latestMatch.format,
+      groupingGeneratedAt: latestMatch.groupingGeneratedAt,
+      groupingResult: latestMatch.groupingResult,
+      results: latestMatch.results,
+    })
+
+    if (shouldFinish) {
+      await prisma.match.update({
+        where: { id: latestMatch.id },
+        data: { status: MatchStatus.finished },
+      })
+    }
   }
 
   if (match.type === 'double') {
@@ -1496,6 +1569,8 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
       }
     })
 
+    await updateMatchFinishedStatus()
+
     revalidatePath('/matchs')
     revalidatePath('/team-invites')
     revalidatePath(`/matchs/${matchId}`)
@@ -1503,12 +1578,57 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
   }
 
   await prisma.$transaction(async (tx) => {
+    if (match.groupingResult) {
+      const payload = match.groupingResult.payload as {
+        groups?: Array<{
+          name: string
+          averagePoints: number
+          players: Array<{ id: string; points: number }>
+        }>
+      }
+
+      if (payload?.groups) {
+        let changed = false
+        const nextGroups = payload.groups.map((group) => {
+          const remaining = group.players.filter((player) => player.id !== userId)
+          if (remaining.length !== group.players.length) {
+            changed = true
+          }
+          const averagePoints =
+            remaining.length > 0
+              ? Math.round(remaining.reduce((sum, player) => sum + player.points, 0) / remaining.length)
+              : 0
+          return { ...group, players: remaining, averagePoints }
+        })
+
+        if (changed) {
+          await tx.matchGrouping.update({
+            where: { matchId },
+            data: {
+              payload: {
+                ...(payload as object),
+                groups: nextGroups,
+              },
+            },
+          })
+        }
+      }
+    }
+
+    if (pendingResultIds.length > 0) {
+      await tx.matchResult.deleteMany({
+        where: { id: { in: pendingResultIds } },
+      })
+    }
+
     await tx.registration.deleteMany({ where: { matchId, userId } })
     await refundRegistrationRewardPoints(tx, {
       userId,
       matchId,
     })
   })
+
+  await updateMatchFinishedStatus()
 
   await writeAuditLog({
     actorId: currentUser.id,

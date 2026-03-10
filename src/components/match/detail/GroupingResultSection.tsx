@@ -12,6 +12,10 @@ type GroupingPayload = {
       eloRating: number;
     }>;
   }>;
+  tableAssignments?: {
+    group?: Record<string, string[]>;
+    knockout?: Record<string, string[]>;
+  };
   knockout?: {
     stage: string;
     rounds: Array<{
@@ -109,6 +113,34 @@ export default function GroupingResultSection({
                     </li>
                   ))}
                 </ul>
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-200">
+                    本组对局桌号
+                  </p>
+                  <div className="space-y-1 text-xs text-slate-300">
+                    {myGroup.players.length < 2 ? (
+                      <p className="text-slate-400">小组人数不足。</p>
+                    ) : (
+                      (() => {
+                        const tables =
+                          groupingPayload.tableAssignments?.group?.[
+                            myGroup.name
+                          ] ?? [];
+                        const tableLabel =
+                          tables.length > 0
+                            ? `桌号 ${tables.join(" / ")}`
+                            : "桌号待定";
+
+                        return (
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/70 bg-slate-900/70 px-2 py-1">
+                            <span>本组全部对局</span>
+                            <span className="text-slate-400">{tableLabel}</span>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-slate-400">你已报名，当前尚未分配到小组。</p>
@@ -132,6 +164,37 @@ export default function GroupingResultSection({
                 currentUserId={currentUserId}
                 currentUserNickname={currentUserNickname}
               />
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-200">
+                  淘汰赛对局桌号
+                </p>
+                <div className="space-y-1 text-xs text-slate-300">
+                  {groupingPayload.knockout.rounds.flatMap((round) =>
+                    round.matches.map((match) => {
+                      const tables =
+                        groupingPayload.tableAssignments?.knockout?.[
+                          match.id
+                        ] ?? [];
+                      const tableLabel =
+                        tables.length > 0
+                          ? `桌号 ${tables.join(" / ")}`
+                          : "桌号待定";
+
+                      return (
+                        <div
+                          key={`knockout-table-${round.name}-${match.id}`}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700/70 bg-slate-900/70 px-2 py-1"
+                        >
+                          <span>
+                            {round.name}：{match.homeLabel} vs {match.awayLabel}
+                          </span>
+                          <span className="text-slate-400">{tableLabel}</span>
+                        </div>
+                      );
+                    }),
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

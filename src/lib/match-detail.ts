@@ -58,6 +58,10 @@ export type GroupingPayload = {
     groupCount?: number;
     qualifiersPerGroup?: number;
   };
+  tableAssignments?: {
+    group?: Record<string, string[]>;
+    knockout?: Record<string, string[]>;
+  };
   groups: Array<{
     name: string;
     averagePoints: number;

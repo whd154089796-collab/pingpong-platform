@@ -2,6 +2,7 @@
 
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
+import { MatchStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { validateCsrfToken } from '@/lib/csrf'
@@ -9,6 +10,7 @@ import { hashPassword } from '@/lib/password'
 import { shouldUseSecureCookies } from '@/lib/session'
 import { sendAzureEmail } from '@/lib/azure-email'
 import { getAuditContext, writeAuditLog } from '@/lib/audit-log'
+import { isMatchAllResultsFinished } from '@/lib/match-status'
 
 const ADMIN_REAUTH_COOKIE = 'ustc_tta_admin_reauth'
 const ADMIN_EMAIL_CHALLENGE_COOKIE = 'ustc_tta_admin_email_challenge'
@@ -84,7 +86,18 @@ type AdminDashboardUserRow = {
 type AdminDashboardMatchRow = {
   id: string
   title: string
-  status: string
+  status: MatchStatus
+  format: 'group_only' | 'group_then_knockout'
+  groupingGeneratedAt: Date | null
+  groupingResult: { payload: unknown } | null
+  results: Array<{
+    winnerTeamIds: string[]
+    loserTeamIds: string[]
+    confirmed: boolean
+    score: unknown
+    createdAt: Date
+    resultVerifiedAt: Date | null
+  }>
   dateTime: Date
   registrationDeadline: Date
   _count: {
@@ -332,6 +345,20 @@ async function fetchAdminDashboardData() {
         id: true,
         title: true,
         status: true,
+        format: true,
+        groupingGeneratedAt: true,
+        groupingResult: { select: { payload: true } },
+        results: {
+          where: { confirmed: true },
+          select: {
+            winnerTeamIds: true,
+            loserTeamIds: true,
+            confirmed: true,
+            score: true,
+            createdAt: true,
+            resultVerifiedAt: true,
+          },
+        },
         dateTime: true,
         registrationDeadline: true,
         _count: {
@@ -370,6 +397,30 @@ async function fetchAdminDashboardData() {
     console.error('fetchAdminDashboardData siteSetting failed', error)
   }
 
+  const matchesToFinish = matches.filter(
+    (match: AdminDashboardMatchRow) =>
+      match.status !== MatchStatus.finished &&
+      isMatchAllResultsFinished({
+        format: match.format,
+        groupingGeneratedAt: match.groupingGeneratedAt,
+        groupingResult: match.groupingResult,
+        results: match.results,
+      }),
+  )
+
+  if (matchesToFinish.length > 0) {
+    await prisma.$transaction(
+      matchesToFinish.map((match) =>
+        prisma.match.update({
+          where: { id: match.id },
+          data: { status: MatchStatus.finished },
+        }),
+      ),
+    )
+  }
+
+  const finishedMatchIds = new Set(matchesToFinish.map((match) => match.id))
+
   const mappedUsers: AdminDashboardUser[] = users.map((user: AdminDashboardUserRow) => {
     const lastActivityCandidates = [
       user.updatedAt,
@@ -398,7 +449,7 @@ async function fetchAdminDashboardData() {
   const mappedMatches: AdminDashboardMatch[] = matches.map((match: AdminDashboardMatchRow) => ({
     id: match.id,
     title: match.title,
-    status: match.status,
+    status: finishedMatchIds.has(match.id) ? MatchStatus.finished : match.status,
     dateTime: match.dateTime.toISOString(),
     registrationDeadline: match.registrationDeadline.toISOString(),
     currentParticipants: match._count.registrations,

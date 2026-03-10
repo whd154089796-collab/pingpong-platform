@@ -3,6 +3,7 @@ import Image from "next/image";
 import { TrendingUp } from "lucide-react";
 import { MatchStatus } from "@prisma/client";
 import MatchCard from "@/components/match/MatchCard";
+import { isMatchAllResultsFinished } from "@/lib/match-status";
 import EloTrendChart from "@/components/home/EloTrendChart";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -62,11 +63,48 @@ export default async function Home() {
       take: 6,
       include: {
         _count: { select: { registrations: true } },
-        groupingResult: { select: { id: true } },
+        groupingResult: { select: { payload: true } },
+        results: {
+          where: { confirmed: true },
+          select: {
+            winnerTeamIds: true,
+            loserTeamIds: true,
+            confirmed: true,
+            score: true,
+            createdAt: true,
+            resultVerifiedAt: true,
+          },
+        },
       },
     }),
     getCurrentUser(),
   ]);
+
+  const latestMatchesToFinish = latestMatches.filter(
+    (match) =>
+      match.status !== MatchStatus.finished &&
+      isMatchAllResultsFinished({
+        format: match.format,
+        groupingGeneratedAt: match.groupingGeneratedAt,
+        groupingResult: match.groupingResult,
+        results: match.results,
+      }),
+  );
+
+  if (latestMatchesToFinish.length > 0) {
+    await prisma.$transaction(
+      latestMatchesToFinish.map((match) =>
+        prisma.match.update({
+          where: { id: match.id },
+          data: { status: MatchStatus.finished },
+        }),
+      ),
+    );
+  }
+
+  const finishedMatchIds = new Set(
+    latestMatchesToFinish.map((match) => match.id),
+  );
 
   let myRegistrations: Array<{
     id: string;
@@ -77,10 +115,19 @@ export default async function Home() {
       dateTime: Date;
       format: "group_only" | "group_then_knockout";
       status: MatchStatus;
+      groupingGeneratedAt: Date | null;
       groupingResult: { payload: unknown } | null;
-      results: Array<{ winnerTeamIds: string[]; loserTeamIds: string[] }>;
+      results: Array<{
+        winnerTeamIds: string[];
+        loserTeamIds: string[];
+        confirmed: boolean;
+        score: unknown;
+        createdAt: Date;
+        resultVerifiedAt: Date | null;
+      }>;
     };
   }> = [];
+  let finishedRegistrationMatchIds = new Set<string>();
   let eloPoints: Array<{ elo: number; createdAt: string }> = [];
   let eloValues: number[] = [];
   let eloDelta7d = 0;
@@ -104,16 +151,20 @@ export default async function Home() {
               dateTime: true,
               format: true,
               status: true,
+              groupingGeneratedAt: true,
               groupingResult: { select: { payload: true } },
               results: {
                 where: {
                   confirmed: true,
-                  OR: [
-                    { winnerTeamIds: { has: currentUser.id } },
-                    { loserTeamIds: { has: currentUser.id } },
-                  ],
                 },
-                select: { winnerTeamIds: true, loserTeamIds: true },
+                select: {
+                  winnerTeamIds: true,
+                  loserTeamIds: true,
+                  confirmed: true,
+                  score: true,
+                  createdAt: true,
+                  resultVerifiedAt: true,
+                },
               },
             },
           },
@@ -128,6 +179,34 @@ export default async function Home() {
     ]);
 
     myRegistrations = registrations;
+
+    const registrationMatchesToFinish = registrations
+      .map((registration) => registration.match)
+      .filter(
+        (match) =>
+          match.status !== MatchStatus.finished &&
+          isMatchAllResultsFinished({
+            format: match.format,
+            groupingGeneratedAt: match.groupingGeneratedAt,
+            groupingResult: match.groupingResult,
+            results: match.results,
+          }),
+      );
+
+    if (registrationMatchesToFinish.length > 0) {
+      await prisma.$transaction(
+        registrationMatchesToFinish.map((match) =>
+          prisma.match.update({
+            where: { id: match.id },
+            data: { status: MatchStatus.finished },
+          }),
+        ),
+      );
+    }
+
+    finishedRegistrationMatchIds = new Set(
+      registrationMatchesToFinish.map((match) => match.id),
+    );
 
     const asc = [...histories].reverse();
     eloValues = asc.map((item) => item.eloAfter);
@@ -295,8 +374,14 @@ export default async function Home() {
                   null) as {
                   groups?: Array<{ players: Array<{ id: string }> }>;
                 } | null;
+                const currentStatus = finishedRegistrationMatchIds.has(
+                  registration.match.id,
+                )
+                  ? MatchStatus.finished
+                  : registration.match.status;
+
                 const phase = stageLabel({
-                  status: registration.match.status,
+                  status: currentStatus,
                   format: registration.match.format,
                   groupingPayload: payload,
                   userId: currentUser.id,
@@ -314,7 +399,7 @@ export default async function Home() {
                         {registration.match.title}
                       </h3>
                       <span className="rounded-full bg-cyan-500/15 px-2.5 py-1 text-xs text-cyan-200">
-                        {statusLabelMap[registration.match.status]}
+                        {statusLabelMap[currentStatus]}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-400 sm:text-sm">
@@ -360,7 +445,13 @@ export default async function Home() {
                 registrationDeadline={match.registrationDeadline.toISOString()}
                 location={match.location ?? "待定"}
                 participants={match._count.registrations}
-                status={statusLabelMap[match.status]}
+                status={
+                  statusLabelMap[
+                    finishedMatchIds.has(match.id)
+                      ? MatchStatus.finished
+                      : match.status
+                  ]
+                }
               />
             ))}
           </div>

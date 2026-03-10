@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { MatchStatus } from "@prisma/client";
 import MatchCard from "@/components/match/MatchCard";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isMatchAllResultsFinished } from "@/lib/match-status";
 
 const statusLabelMap = {
   registration: "报名中",
@@ -51,10 +53,45 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
     },
     include: {
       _count: { select: { registrations: true } },
-      groupingResult: true,
+      groupingResult: { select: { payload: true } },
+      results: {
+        where: { confirmed: true },
+        select: {
+          winnerTeamIds: true,
+          loserTeamIds: true,
+          confirmed: true,
+          score: true,
+          createdAt: true,
+          resultVerifiedAt: true,
+        },
+      },
     },
     orderBy: { dateTime: "asc" },
   });
+
+  const matchesToFinish = matches.filter(
+    (match) =>
+      match.status !== MatchStatus.finished &&
+      isMatchAllResultsFinished({
+        format: match.format,
+        groupingGeneratedAt: match.groupingGeneratedAt,
+        groupingResult: match.groupingResult,
+        results: match.results,
+      }),
+  );
+
+  if (matchesToFinish.length > 0) {
+    await prisma.$transaction(
+      matchesToFinish.map((match) =>
+        prisma.match.update({
+          where: { id: match.id },
+          data: { status: MatchStatus.finished },
+        }),
+      ),
+    );
+  }
+
+  const finishedMatchIds = new Set(matchesToFinish.map((match) => match.id));
 
   return (
     <div className="space-y-8">
@@ -105,7 +142,13 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
               registrationDeadline={match.registrationDeadline.toISOString()}
               location={match.location ?? "待定"}
               participants={match._count.registrations}
-              status={statusLabelMap[match.status]}
+              status={
+                statusLabelMap[
+                  finishedMatchIds.has(match.id)
+                    ? MatchStatus.finished
+                    : match.status
+                ]
+              }
             />
           ))}
         </div>
