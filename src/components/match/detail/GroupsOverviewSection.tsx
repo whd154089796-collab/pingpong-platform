@@ -13,6 +13,18 @@ type GroupingPayload = {
   }>;
 };
 
+function calculateAverageElo(
+  players: GroupingPayload["groups"][number]["players"],
+) {
+  if (players.length === 0) return 0;
+  const sum = players.reduce(
+    (acc, player) =>
+      acc + (Number.isFinite(player.eloRating) ? player.eloRating : 0),
+    0,
+  );
+  return Math.round(sum / players.length);
+}
+
 export default function GroupsOverviewSection({
   groupingPayload,
   pagedGroups,
@@ -55,7 +67,7 @@ export default function GroupsOverviewSection({
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold text-cyan-100">{group.name}</h3>
                 <span className="text-xs text-slate-400">
-                  组均 ELO {group.averagePoints}
+                  组均 ELO {calculateAverageElo(group.players)}
                 </span>
               </div>
               <ul className="space-y-1 text-sm text-slate-200">

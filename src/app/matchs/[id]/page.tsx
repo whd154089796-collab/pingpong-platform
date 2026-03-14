@@ -178,6 +178,7 @@ export default async function MatchDetailPage({
     config?: {
       groupCount?: number;
       qualifiersPerGroup?: number;
+      seedMethod?: "min_diff" | "snake";
     };
     groups: Array<{
       name: string;

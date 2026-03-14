@@ -49,6 +49,7 @@ export default async function MatchGroupingManagePage({
     config?: {
       groupCount?: number;
       qualifiersPerGroup?: number;
+      seedMethod?: "min_diff" | "snake";
     };
     groups: Array<{
       name: string;
@@ -98,6 +99,7 @@ export default async function MatchGroupingManagePage({
                 groupCount: defaultGroupCount,
                 qualifiersPerGroup:
                   match.format === "group_then_knockout" ? 2 : undefined,
+                seedMethod: "min_diff",
               },
             );
           } catch {

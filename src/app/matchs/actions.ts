@@ -1039,6 +1039,8 @@ export async function previewGroupingAction(matchId: string, _: GroupingAdminSta
 
   const groupCount = Number(formData.get('groupCount') ?? 0)
   const qualifiersPerGroup = Number(formData.get('qualifiersPerGroup') ?? 1)
+  const seedMethodRaw = String(formData.get('seedMethod') ?? 'min_diff')
+  const seedMethod = seedMethodRaw === 'snake' ? 'snake' : 'min_diff'
   const participants = match.registrations.map((r) => r.user)
 
   if (participants.length < 2) return { error: '报名人数不足，无法分组。' }
@@ -1049,6 +1051,7 @@ export async function previewGroupingAction(matchId: string, _: GroupingAdminSta
     const payload = generateGroupingPayload(match.format, participants, {
       groupCount,
       qualifiersPerGroup: match.format === 'group_then_knockout' ? qualifiersPerGroup : undefined,
+      seedMethod,
     })
 
     return {
@@ -1583,7 +1586,7 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
         groups?: Array<{
           name: string
           averagePoints: number
-          players: Array<{ id: string; points: number }>
+          players: Array<{ id: string; points: number; eloRating: number }>
         }>
       }
 
@@ -1596,7 +1599,10 @@ export async function removeRegistrationByManagerAction(matchId: string, userId:
           }
           const averagePoints =
             remaining.length > 0
-              ? Math.round(remaining.reduce((sum, player) => sum + player.points, 0) / remaining.length)
+              ? Math.round(
+                  remaining.reduce((sum, player) => sum + player.eloRating, 0) /
+                    remaining.length,
+                )
               : 0
           return { ...group, players: remaining, averagePoints }
         })

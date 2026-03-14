@@ -7,6 +7,8 @@ export type SeedPlayer = {
   points: number
 }
 
+export type GroupSeedMethod = 'min_diff' | 'snake'
+
 type BracketMatch = {
   id: string
   homeLabel: string
@@ -30,6 +32,7 @@ type GroupingPayload = {
   config: {
     groupCount: number
     qualifiersPerGroup?: number
+    seedMethod?: GroupSeedMethod
   }
   tableAssignments?: {
     group?: Record<string, string[]>
@@ -55,6 +58,62 @@ function snakeDistribute(players: SeedPlayer[], groupCount: number) {
     const targetIndex = round % 2 === 0 ? offset : groupCount - 1 - offset
     groups[targetIndex].push(player)
   })
+  return groups
+}
+
+function distributeByMinSpread(players: SeedPlayer[], groupCount: number) {
+  const total = players.length
+  const baseSize = Math.floor(total / groupCount)
+  const remainder = total % groupCount
+  const targetSizes = Array.from({ length: groupCount }, (_, index) =>
+    index < remainder ? baseSize + 1 : baseSize,
+  )
+
+  const groups: SeedPlayer[][] = Array.from({ length: groupCount }, () => [])
+
+  const getElo = (player: SeedPlayer) =>
+    Number.isFinite(player.eloRating) ? player.eloRating : 0
+
+  const calculateSpreadWith = (group: SeedPlayer[], player: SeedPlayer) => {
+    if (group.length === 0) return 0
+    let min = Infinity
+    let max = -Infinity
+    for (const member of group) {
+      const elo = getElo(member)
+      if (elo < min) min = elo
+      if (elo > max) max = elo
+    }
+    const incoming = getElo(player)
+    const nextMin = Math.min(min, incoming)
+    const nextMax = Math.max(max, incoming)
+    return nextMax - nextMin
+  }
+
+  for (const player of players) {
+    let bestIndex = 0
+    let bestSpread = Infinity
+    let bestSize = Infinity
+
+    for (let index = 0; index < groupCount; index += 1) {
+      if (groups[index].length >= targetSizes[index]) continue
+
+      const spread = calculateSpreadWith(groups[index], player)
+      const size = groups[index].length
+
+      if (
+        spread < bestSpread ||
+        (spread === bestSpread && size < bestSize) ||
+        (spread === bestSpread && size === bestSize && index < bestIndex)
+      ) {
+        bestSpread = spread
+        bestSize = size
+        bestIndex = index
+      }
+    }
+
+    groups[bestIndex].push(player)
+  }
+
   return groups
 }
 
@@ -184,7 +243,7 @@ function buildFirstRoundMatches(
 export function generateGroupingPayload(
   format: CompetitionFormat,
   participants: SeedPlayer[],
-  config: { groupCount: number; qualifiersPerGroup?: number },
+  config: { groupCount: number; qualifiersPerGroup?: number; seedMethod?: GroupSeedMethod },
 ): GroupingPayload {
   const sorted = [...participants].sort((a, b) => b.eloRating - a.eloRating || b.points - a.points)
   const total = sorted.length
@@ -193,7 +252,11 @@ export function generateGroupingPayload(
     throw new Error('组数不合法。')
   }
 
-  const groupPlayers = snakeDistribute(sorted, config.groupCount)
+  const seedMethod = config.seedMethod ?? 'min_diff'
+  const groupPlayers =
+    seedMethod === 'snake'
+      ? snakeDistribute(sorted, config.groupCount)
+      : distributeByMinSpread(sorted, config.groupCount)
 
   const groups = groupPlayers.map((players, index) => ({
     name: `第 ${index + 1} 组`,
@@ -204,7 +267,10 @@ export function generateGroupingPayload(
   const payload: GroupingPayload = {
     generatedAt: new Date().toISOString(),
     format,
-    config,
+    config: {
+      ...config,
+      seedMethod,
+    },
     groups,
   }
 

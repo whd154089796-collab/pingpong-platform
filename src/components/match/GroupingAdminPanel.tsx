@@ -9,6 +9,9 @@ import {
 import KnockoutBracket from "@/components/match/KnockoutBracket";
 
 type GroupingPayload = {
+  config?: {
+    seedMethod?: "min_diff" | "snake";
+  };
   groups: Array<{
     name: string;
     averagePoints: number;
@@ -33,6 +36,8 @@ type GroupingPayload = {
   };
 };
 
+type SeedMethod = "min_diff" | "snake";
+
 type Props = {
   matchId: string;
   initialPayloadJson?: string;
@@ -48,7 +53,16 @@ const initialState: GroupingAdminState = {};
 function parsePayload(text?: string) {
   if (!text) return null;
   try {
-    return JSON.parse(text) as GroupingPayload;
+    const payload = JSON.parse(text) as GroupingPayload;
+    if (!payload?.groups) return payload;
+
+    return {
+      ...payload,
+      groups: payload.groups.map((group) => ({
+        ...group,
+        averagePoints: recalculateGroupAverage(group),
+      })),
+    };
   } catch {
     return null;
   }
@@ -56,7 +70,11 @@ function parsePayload(text?: string) {
 
 function recalculateGroupAverage(group: GroupingPayload["groups"][number]) {
   if (group.players.length === 0) return 0;
-  const sum = group.players.reduce((acc, player) => acc + player.points, 0);
+  const sum = group.players.reduce(
+    (acc, player) =>
+      acc + (Number.isFinite(player.eloRating) ? player.eloRating : 0),
+    0,
+  );
   return Math.round(sum / group.players.length);
 }
 
@@ -104,12 +122,16 @@ export default function GroupingAdminPanel({
     confirmAction,
     initialState,
   );
+  const initialPayload = parsePayload(initialPayloadJson);
   const [editablePayload, setEditablePayload] =
-    useState<GroupingPayload | null>(() => parsePayload(initialPayloadJson));
+    useState<GroupingPayload | null>(() => initialPayload);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
   const [groupCount, setGroupCount] = useState(defaultGroupCount);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(
     defaultQualifiersPerGroup,
+  );
+  const [seedMethod, setSeedMethod] = useState<SeedMethod>(
+    initialPayload?.config?.seedMethod ?? "min_diff",
   );
 
   const potentialFailureReasons: string[] = [];
@@ -155,6 +177,7 @@ export default function GroupingAdminPanel({
     const parsed = parsePayload(previewState.previewJson);
     if (parsed) {
       setEditablePayload(parsed);
+      setSeedMethod(parsed.config?.seedMethod ?? "min_diff");
     }
   }, [previewState.previewJson]);
 
@@ -264,6 +287,21 @@ export default function GroupingAdminPanel({
                 </div>
               )}
             </div>
+
+            <label className="space-y-1 text-sm text-slate-300">
+              <span>分组方式</span>
+              <select
+                name="seedMethod"
+                value={seedMethod}
+                onChange={(event) =>
+                  setSeedMethod(event.target.value as SeedMethod)
+                }
+                className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
+              >
+                <option value="min_diff">组内分差最小</option>
+                <option value="snake">蛇形排列</option>
+              </select>
+            </label>
 
             <div className="flex flex-wrap items-center gap-3">
               <button
