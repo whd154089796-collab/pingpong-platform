@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   previewGroupingAction,
   confirmGroupingAction,
@@ -9,6 +9,7 @@ import {
 import KnockoutBracket from "@/components/match/KnockoutBracket";
 
 type GroupingPayload = {
+  generatedAt?: string;
   config?: {
     seedMethod?: "min_diff" | "snake";
   };
@@ -123,8 +124,15 @@ export default function GroupingAdminPanel({
     initialState,
   );
   const initialPayload = parsePayload(initialPayloadJson);
+  const previewPayload = useMemo(
+    () => parsePayload(previewState.previewJson),
+    [previewState.previewJson],
+  );
   const [editablePayload, setEditablePayload] =
     useState<GroupingPayload | null>(() => initialPayload);
+  const [editableSourceGeneratedAt, setEditableSourceGeneratedAt] = useState<
+    string | null
+  >(initialPayload?.generatedAt ?? null);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
   const [groupCount, setGroupCount] = useState(defaultGroupCount);
   const [qualifiersPerGroup, setQualifiersPerGroup] = useState(
@@ -172,16 +180,14 @@ export default function GroupingAdminPanel({
     }
   }
 
-  useEffect(() => {
-    if (!previewState.previewJson) return;
-    const parsed = parsePayload(previewState.previewJson);
-    if (parsed) {
-      setEditablePayload(parsed);
-      setSeedMethod(parsed.config?.seedMethod ?? "min_diff");
-    }
-  }, [previewState.previewJson]);
+  const payload =
+    previewPayload &&
+    editablePayload &&
+    editableSourceGeneratedAt &&
+    previewPayload.generatedAt !== editableSourceGeneratedAt
+      ? previewPayload
+      : (editablePayload ?? previewPayload ?? initialPayload);
 
-  const payload = editablePayload;
   const handleMovePlayer = (playerId: string, sourceGroupName: string) => {
     if (!payload) return;
     const targetGroupName = moveTargets[playerId];
@@ -221,6 +227,7 @@ export default function GroupingAdminPanel({
       return group;
     });
 
+    setEditableSourceGeneratedAt(payload.generatedAt ?? null);
     setEditablePayload({
       ...payload,
       groups: nextGroups,
@@ -473,6 +480,7 @@ export default function GroupingAdminPanel({
                         Object.keys(nextTableAssignments.group).length > 0 ||
                         Object.keys(nextTableAssignments.knockout).length > 0;
 
+                      setEditableSourceGeneratedAt(payload.generatedAt ?? null);
                       setEditablePayload({
                         ...payload,
                         tableAssignments: hasAnyTables
@@ -558,6 +566,9 @@ export default function GroupingAdminPanel({
                                     Object.keys(nextTableAssignments.knockout)
                                       .length > 0;
 
+                                  setEditableSourceGeneratedAt(
+                                    payload.generatedAt ?? null,
+                                  );
                                   setEditablePayload({
                                     ...payload,
                                     tableAssignments: hasAnyTables
@@ -609,12 +620,6 @@ export default function GroupingAdminPanel({
             <p className="text-sm text-emerald-300">{confirmState.success}</p>
           )}
         </div>
-      )}
-
-      {!payload && (
-        <p className="text-sm text-slate-400">
-          当前暂无可编辑分组数据，请先确认报名与分组条件。
-        </p>
       )}
     </div>
   );
