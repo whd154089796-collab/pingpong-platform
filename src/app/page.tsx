@@ -54,33 +54,48 @@ function stageLabel(input: {
 }
 
 export default async function Home() {
-  const [latestMatches, currentUser] = await Promise.all([
-    prisma.match.findMany({
-      where: {
-        isQuickMatch: false,
-      },
-      orderBy: [{ dateTime: "asc" }, { createdAt: "desc" }],
-      take: 6,
-      include: {
-        _count: { select: { registrations: true } },
-        groupingResult: { select: { payload: true } },
-        results: {
-          where: { confirmed: true },
-          select: {
-            winnerTeamIds: true,
-            loserTeamIds: true,
-            confirmed: true,
-            score: true,
-            createdAt: true,
-            resultVerifiedAt: true,
-          },
-        },
-      },
-    }),
+  const [orderedMatchIds, currentUser] = await Promise.all([
+    prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Match"
+      WHERE "isQuickMatch" = false
+      ORDER BY ABS(EXTRACT(EPOCH FROM ("dateTime" - NOW()))) ASC, "dateTime" DESC, "createdAt" DESC
+      LIMIT 6
+    `,
     getCurrentUser(),
   ]);
 
-  const latestMatchesToFinish = latestMatches.filter(
+  const latestMatches = await prisma.match.findMany({
+    where: {
+      id: {
+        in: orderedMatchIds.map((match) => match.id),
+      },
+    },
+    include: {
+      _count: { select: { registrations: true } },
+      groupingResult: { select: { payload: true } },
+      results: {
+        where: { confirmed: true },
+        select: {
+          winnerTeamIds: true,
+          loserTeamIds: true,
+          confirmed: true,
+          score: true,
+          createdAt: true,
+          resultVerifiedAt: true,
+        },
+      },
+    },
+  });
+
+  const latestMatchesById = new Map(
+    latestMatches.map((match) => [match.id, match] as const),
+  );
+  const sortedLatestMatches = orderedMatchIds
+    .map((match) => latestMatchesById.get(match.id))
+    .filter((match): match is (typeof latestMatches)[number] => Boolean(match));
+
+  const latestMatchesToFinish = sortedLatestMatches.filter(
     (match) =>
       match.status !== MatchStatus.finished &&
       isMatchAllResultsFinished({
@@ -435,7 +450,7 @@ export default async function Home() {
           </div>
         ) : (
           <div className="grid gap-4 sm:gap-6 md:grid-cols-2 2xl:grid-cols-3">
-            {latestMatches.map((match) => (
+            {sortedLatestMatches.map((match) => (
               <MatchCard
                 key={match.id}
                 id={match.id}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MatchStatus } from "@prisma/client";
+import { MatchStatus, Prisma } from "@prisma/client";
 import MatchCard from "@/components/match/MatchCard";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -32,24 +32,24 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
     ? resolvedSearchParams.q[0]
     : resolvedSearchParams?.q;
   const query = (rawQuery ?? "").trim();
+  const queryFilter =
+    query === ""
+      ? Prisma.empty
+      : Prisma.sql`AND "title" ILIKE ${`%${query}%`}`;
+
+  const orderedMatchIds = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "Match"
+    WHERE "isQuickMatch" = false
+      ${queryFilter}
+    ORDER BY ABS(EXTRACT(EPOCH FROM ("dateTime" - NOW()))) ASC, "dateTime" DESC, "createdAt" DESC
+  `;
 
   const matches = await prisma.match.findMany({
     where: {
-      AND: [
-        query
-          ? {
-              title: {
-                contains: query,
-                mode: "insensitive",
-              },
-            }
-          : {},
-        {
-          NOT: {
-            isQuickMatch: true,
-          },
-        },
-      ],
+      id: {
+        in: orderedMatchIds.map((match) => match.id),
+      },
     },
     include: {
       _count: { select: { registrations: true } },
@@ -66,10 +66,14 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
         },
       },
     },
-    orderBy: { dateTime: "asc" },
   });
 
-  const matchesToFinish = matches.filter(
+  const matchesById = new Map(matches.map((match) => [match.id, match] as const));
+  const sortedMatches = orderedMatchIds
+    .map((match) => matchesById.get(match.id))
+    .filter((match): match is (typeof matches)[number] => Boolean(match));
+
+  const matchesToFinish = sortedMatches.filter(
     (match) =>
       match.status !== MatchStatus.finished &&
       isMatchAllResultsFinished({
@@ -130,9 +134,9 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
         </div>
       </div>
 
-      {matches.length > 0 ? (
+      {sortedMatches.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
-          {matches.map((match) => (
+          {sortedMatches.map((match) => (
             <MatchCard
               key={match.id}
               id={match.id}

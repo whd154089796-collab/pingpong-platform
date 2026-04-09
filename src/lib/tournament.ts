@@ -70,49 +70,12 @@ function distributeByMinSpread(players: SeedPlayer[], groupCount: number) {
   )
 
   const groups: SeedPlayer[][] = Array.from({ length: groupCount }, () => [])
+  let startIndex = 0
 
-  const getElo = (player: SeedPlayer) =>
-    Number.isFinite(player.eloRating) ? player.eloRating : 0
-
-  const calculateSpreadWith = (group: SeedPlayer[], player: SeedPlayer) => {
-    if (group.length === 0) return 0
-    let min = Infinity
-    let max = -Infinity
-    for (const member of group) {
-      const elo = getElo(member)
-      if (elo < min) min = elo
-      if (elo > max) max = elo
-    }
-    const incoming = getElo(player)
-    const nextMin = Math.min(min, incoming)
-    const nextMax = Math.max(max, incoming)
-    return nextMax - nextMin
-  }
-
-  for (const player of players) {
-    let bestIndex = 0
-    let bestSpread = Infinity
-    let bestSize = Infinity
-
-    for (let index = 0; index < groupCount; index += 1) {
-      if (groups[index].length >= targetSizes[index]) continue
-
-      const spread = calculateSpreadWith(groups[index], player)
-      const size = groups[index].length
-
-      if (
-        spread < bestSpread ||
-        (spread === bestSpread && size < bestSize) ||
-        (spread === bestSpread && size === bestSize && index < bestIndex)
-      ) {
-        bestSpread = spread
-        bestSize = size
-        bestIndex = index
-      }
-    }
-
-    groups[bestIndex].push(player)
-  }
+  targetSizes.forEach((size, index) => {
+    groups[index] = players.slice(startIndex, startIndex + size)
+    startIndex += size
+  })
 
   return groups
 }
