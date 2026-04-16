@@ -63,7 +63,7 @@ cd /www/wwwroot/pingpongclub
 
 # 1. 拉取 GitHub 上的最新代码
 
-git pull origin master
+git pull origin master//git reset --hard origin/master
 
 # 2. 如果你修改了 .env（比如新加了 AZURE_COMMUNICATION_CONNECTION_STRING），请手动更新服务器的 .env
 

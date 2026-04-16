@@ -241,116 +241,117 @@ export default function GroupingAdminPanel({
 
   const panelContent = (
     <div className={collapsible ? "mt-5 space-y-5" : "space-y-5"}>
-      {payload && (
-        <div
-          className={
-            collapsible
-              ? "space-y-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4"
-              : "space-y-4"
-          }
+      <div
+        className={
+          collapsible
+            ? "space-y-4 rounded-xl border border-slate-700 bg-slate-900/70 p-4"
+            : "space-y-4"
+        }
+      >
+        <form
+          action={previewFormAction}
+          className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3"
         >
-          <form
-            action={previewFormAction}
-            className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3"
-          >
-            <input type="hidden" name="csrfToken" defaultValue="" />
-            <div className="grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="csrfToken" defaultValue="" />
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="space-y-1 text-sm text-slate-300">
+              <span>组数设置</span>
+              <input
+                type="number"
+                name="groupCount"
+                min={1}
+                max={Math.max(participantCount, 1)}
+                value={groupCount}
+                onChange={(event) =>
+                  setGroupCount(Number(event.target.value) || 1)
+                }
+                className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
+              />
+            </label>
+
+            {matchFormat === "group_then_knockout" ? (
               <label className="space-y-1 text-sm text-slate-300">
-                <span>组数设置</span>
+                <span>每组晋级人数</span>
                 <input
                   type="number"
-                  name="groupCount"
+                  name="qualifiersPerGroup"
                   min={1}
                   max={Math.max(participantCount, 1)}
-                  value={groupCount}
+                  value={qualifiersPerGroup}
                   onChange={(event) =>
-                    setGroupCount(Number(event.target.value) || 1)
+                    setQualifiersPerGroup(Number(event.target.value) || 1)
                   }
                   className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
                 />
               </label>
-
-              {matchFormat === "group_then_knockout" ? (
-                <label className="space-y-1 text-sm text-slate-300">
-                  <span>每组晋级人数</span>
-                  <input
-                    type="number"
-                    name="qualifiersPerGroup"
-                    min={1}
-                    max={Math.max(participantCount, 1)}
-                    value={qualifiersPerGroup}
-                    onChange={(event) =>
-                      setQualifiersPerGroup(Number(event.target.value) || 1)
-                    }
-                    className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
-                  />
-                </label>
-              ) : (
-                <div className="space-y-1 text-sm text-slate-400">
-                  <span>每组晋级人数</span>
-                  <p className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-400">
-                    当前赛制为仅分组，不启用晋级设置
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <label className="space-y-1 text-sm text-slate-300">
-              <span>分组方式</span>
-              <select
-                name="seedMethod"
-                value={seedMethod}
-                onChange={(event) =>
-                  setSeedMethod(event.target.value as SeedMethod)
-                }
-                className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
-              >
-                <option value="min_diff">组内分差最小</option>
-                <option value="snake">蛇形排列</option>
-              </select>
-            </label>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={previewPending}
-                className="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
-              >
-                {previewPending ? "生成中..." : "生成分组预览"}
-              </button>
-              <p className="text-xs text-slate-400">
-                参赛人数：{participantCount}，可先调整参数再生成预览。
-              </p>
-            </div>
-
-            {potentialFailureReasons.length > 0 ? (
-              <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2">
-                <p className="text-xs font-medium text-amber-200">
-                  当前参数可能导致分组失败：
+            ) : (
+              <div className="space-y-1 text-sm text-slate-400">
+                <span>每组晋级人数</span>
+                <p className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-400">
+                  当前赛制为仅分组，不启用晋级设置
                 </p>
-                <ul className="mt-1 space-y-1 text-xs text-amber-100/90">
-                  {potentialFailureReasons.map((reason) => (
-                    <li key={reason}>• {reason}</li>
-                  ))}
-                </ul>
               </div>
-            ) : null}
+            )}
+          </div>
 
-            {previewState.error ? (
-              <p className="text-sm text-rose-300">{previewState.error}</p>
-            ) : null}
-            {previewState.success ? (
-              <p className="text-sm text-emerald-300">{previewState.success}</p>
-            ) : null}
+          <label className="space-y-1 text-sm text-slate-300">
+            <span>分组方式</span>
+            <select
+              name="seedMethod"
+              value={seedMethod}
+              onChange={(event) =>
+                setSeedMethod(event.target.value as SeedMethod)
+              }
+              className="w-full rounded-md border border-slate-600 bg-slate-900 px-2 py-1.5 text-slate-100"
+            >
+              <option value="min_diff">组内分差最小</option>
+              <option value="snake">蛇形排列</option>
+            </select>
+          </label>
 
-            {payload.groups.length > 0 ? (
-              <div className="rounded-md border border-emerald-500/35 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200">
-                分组成功：共 {payload.groups.length} 组，
-                {buildGroupSizeSummary(payload.groups)}。
-              </div>
-            ) : null}
-          </form>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={previewPending}
+              className="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-sm text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-60"
+            >
+              {previewPending ? "生成中..." : "生成分组预览"}
+            </button>
+            <p className="text-xs text-slate-400">
+              参赛人数：{participantCount}，可先调整参数再生成预览。
+            </p>
+          </div>
 
+          {potentialFailureReasons.length > 0 ? (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2">
+              <p className="text-xs font-medium text-amber-200">
+                当前参数可能导致分组失败：
+              </p>
+              <ul className="mt-1 space-y-1 text-xs text-amber-100/90">
+                {potentialFailureReasons.map((reason) => (
+                  <li key={reason}>• {reason}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {previewState.error ? (
+            <p className="text-sm text-rose-300">{previewState.error}</p>
+          ) : null}
+          {previewState.success ? (
+            <p className="text-sm text-emerald-300">{previewState.success}</p>
+          ) : null}
+
+          {payload && payload.groups.length > 0 ? (
+            <div className="rounded-md border border-emerald-500/35 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-200">
+              分组成功：共 {payload.groups.length} 组，
+              {buildGroupSizeSummary(payload.groups)}。
+            </div>
+          ) : null}
+        </form>
+
+        {payload ? (
+          <>
           <p className="text-sm text-slate-300">
             当前编辑中的分组结果（确认后会发布给所有用户）
           </p>
@@ -619,8 +620,13 @@ export default function GroupingAdminPanel({
           {confirmState.success && (
             <p className="text-sm text-emerald-300">{confirmState.success}</p>
           )}
-        </div>
-      )}
+          </>
+        ) : (
+          <p className="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+            还没有可编辑的分组预览，请先调整参数并点击“生成分组预览”。
+          </p>
+        )}
+      </div>
     </div>
   );
 
