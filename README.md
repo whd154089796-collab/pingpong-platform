@@ -1,93 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 中国科大乒乓球协会赛事与成员成长平台
 
-## Database (Prisma + Neon)
+这是一个面向中国科学技术大学学生乒乓球协会的社团网站项目，用于活动与比赛发布、比赛报名、选手管理、ELO 与积分记录、排行榜展示、赛果录入、双打组队、快速比赛和管理员后台维护。
 
-This project now includes a Prisma schema for the ping-pong platform domain (users, matches, registrations, results, ELO history, points ledger, rewards/redemptions, badges, reviews, audit logs, and ranking cache tables).
+## 当前版本说明
 
-1. Create a Neon project and copy its Postgres connection strings.
-2. Add environment variables:
+- 当前仓库版本可能领先于线上已部署版本，线上实际功能请以部署环境为准。
+- 文档基于当前代码结构、Prisma schema、路由、组件和配置整理。
+- 仓库中如存在 `.env`、数据库连接、密钥或第三方服务配置，请仅保存在本地或部署平台的环境变量中，不要提交到 Git。
+
+## 主要功能
+
+- 用户注册、登录、邮箱验证、密码重置和个人资料编辑。
+- 比赛大厅、比赛详情、比赛创建、报名与退赛。
+- 分组赛、分组后淘汰赛、签表展示和比赛进度查看。
+- 赛果登记、对手确认、管理员录入、赛果纠错和 ELO 更新。
+- 积分发放、积分流水和个人成长记录。
+- 排行榜、个人主页、ELO 曲线和历史战绩展示。
+- 双打组队邀请、双打小队报名。
+- 快速比赛登记、确认和超时作废。
+- 管理员控制台、用户管理、批量操作、网站开关和审计日志。
+- 头像上传到 Cloudinary，参赛证明 PDF 导出。
+- 移动端布局和深色竞技风格界面。
+
+## 技术栈概览
+
+- Next.js App Router
+- React
+- TypeScript
+- Tailwind CSS
+- Prisma
+- PostgreSQL，推荐 Neon 或其他托管 PostgreSQL
+- Azure Communication Email，用于邮箱验证和管理员二次验证
+- Cloudinary，用于头像上传
+- PDFKit，用于参赛证明生成
+- PM2 / Netlify 等部署方式，具体以实际服务器环境为准
+
+## 快速开始
+
+1. 安装依赖：
 
 ```bash
-DATABASE_URL="postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require"
-DIRECT_URL="postgresql://<user>:<password>@<neon-host>/<db>?sslmode=require"
-APP_URL="https://kedappclub.xyz"
-NEXT_PUBLIC_APP_URL="https://kedappclub.xyz"
+npm install
 ```
 
-3. Generate Prisma client and run migration:
+2. 准备 `.env`：
+
+```bash
+cp .env.example .env
+```
+
+1. 生成 Prisma Client：
 
 ```bash
 npm run prisma:generate
+```
+
+4. 开发环境迁移数据库：
+
+```bash
 npm run prisma:migrate
 ```
 
-Prisma schema location: `prisma/schema.prisma`.
-Prisma client singleton: `src/lib/prisma.ts`.
-
-## Getting Started
-
-First, run the development server:
+5. 启动开发服务器：
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+默认访问地址为 `http://localhost:3000`。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 文档导航
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-cd /www/wwwroot/pingpongclub
-
-# 1. 拉取 GitHub 上的最新代码
-
-git pull origin master//git reset --hard origin/master
-
-# 2. 如果你修改了 .env（比如新加了 AZURE_COMMUNICATION_CONNECTION_STRING），请手动更新服务器的 .env
-
-# nano .env (确认里面有新的 KEY 后 Ctrl+O 保存，Ctrl+X 退出)
-
-# 3. 重新安装依赖（如果你新装了 Azure 邮件 SDK 包）
-
-npm install
-npx prisma migrate deploy
-
-# 4. 重新编译（这一步最耗时，也是生效的关键）
-
-npm run build
-
-# 5. 重启 PM2 进程并更新环境变量
-
-pm2 restart kedapp --update-env
-
-pm2 start npm --name "kedapp" -- run start
-
-pm2 stop kedapp
-
-pm2 start kedapp
-
-建议不要用neon插件，会在你VScode环境里注入环境变量，导致你怎么修改.env文件都没有用。笔者曾经修改几个小时才发现是插件问题
-
-用set DATABASE_URL检查目前环境，可以对比系统CMD和VScode的（我就是这样找出来VScode插件问题的）
+- [功能说明](docs/01-功能说明.md)
+- [社团使用场景](docs/02-社团使用场景.md)
+- [项目结构](docs/03-项目结构.md)
+- [技术架构](docs/04-技术架构.md)
+- [数据库与数据模型](docs/05-数据库与数据模型.md)
+- [部署说明](docs/06-部署说明.md)
+- [运维说明](docs/07-运维说明.md)
+- [权限与安全](docs/08-权限与安全.md)
+- [对外参考说明](docs/09-对外参考说明.md)
