@@ -20,10 +20,9 @@ type BracketRound = {
   matches: BracketMatch[]
 }
 
-type QualifierLabel = {
+type QualifierSlot = {
   groupIndex: number
   rank: number
-  label: string
 }
 
 type GroupingPayload = {
@@ -123,84 +122,107 @@ function buildBracketRounds(firstRoundMatches: BracketMatch[], bracketSize: numb
   return rounds
 }
 
+function buildSeedPlacementOrder(size: number): number[] {
+  if (size <= 1) return [1]
+
+  const previous = buildSeedPlacementOrder(size / 2)
+  return previous.flatMap((seed) => [seed, size + 1 - seed])
+}
+
+function buildLabel(group: { name: string }, rank: number) {
+  return `${group.name}第 ${rank} 名`
+}
+
+function buildMatch(
+  id: string,
+  home: QualifierSlot,
+  away: QualifierSlot,
+  groups: Array<{ name: string }>,
+) {
+  return {
+    id,
+    homeLabel: buildLabel(groups[home.groupIndex], home.rank),
+    awayLabel: buildLabel(groups[away.groupIndex], away.rank),
+  }
+}
+
 function buildFirstRoundMatches(
   groups: Array<{ name: string }>,
   qualifiersPerGroup: number,
 ): BracketMatch[] {
   const groupCount = groups.length
+  const bracketSize = groupCount * qualifiersPerGroup
+  const seedPlacementOrder = buildSeedPlacementOrder(bracketSize)
+  const seedPosition = new Map(seedPlacementOrder.map((seed, index) => [seed, index]))
 
-  const qualifiersByGroup: QualifierLabel[][] = groups.map((group, groupIndex) =>
-    Array.from({ length: qualifiersPerGroup }, (_, rankIndex) => ({
-      groupIndex,
-      rank: rankIndex + 1,
-      label: `${group.name}第 ${rankIndex + 1} 名`,
-    })),
+  // Keep strong group winners apart first, then spread the same group's lower-ranked
+  // qualifiers across bracket regions so they do not collide too early.
+  const regionCount = Math.min(qualifiersPerGroup, bracketSize)
+  const regionSize = bracketSize / regionCount
+  const rankRegionOffsets = buildSeedPlacementOrder(regionCount).map((seed) => seed - 1)
+  const seedToQualifier = new Map<number, QualifierSlot>()
+
+  const getSeedRegion = (seed: number) => {
+    const position = seedPosition.get(seed) ?? 0
+    return Math.floor(position / regionSize)
+  }
+
+  const baseRegions = Array.from({ length: groupCount }, (_, groupIndex) =>
+    getSeedRegion(groupIndex + 1),
   )
 
-  if (qualifiersPerGroup === 2 && groupCount > 1) {
-    return Array.from({ length: groupCount }, (_, i) => {
-      const mirrorGroupIndex = groupCount - 1 - i
-      const home = qualifiersByGroup[i][0]
-      const away = qualifiersByGroup[mirrorGroupIndex][1]
+  for (let rank = 1; rank <= qualifiersPerGroup; rank += 1) {
+    if (rank === 1) {
+      groups.forEach((_, groupIndex) => {
+        seedToQualifier.set(groupIndex + 1, { groupIndex, rank })
+      })
+      continue
+    }
 
-      return {
-        id: `R1-M${i + 1}`,
-        homeLabel: home.label,
-        awayLabel: away.label,
-      }
-    })
+    const firstSeedInRank = (rank - 1) * groupCount + 1
+    const unusedSeeds = new Set(
+      Array.from({ length: groupCount }, (_, index) => firstSeedInRank + index),
+    )
+
+    for (let groupIndex = 0; groupIndex < groupCount; groupIndex += 1) {
+      const desiredRegion =
+        (baseRegions[groupIndex] + rankRegionOffsets[rank - 1]) % regionCount
+      const candidates = [...unusedSeeds]
+        .map((seed) => {
+          const seedOffset = seed - firstSeedInRank
+          const region = getSeedRegion(seed)
+          const regionDistance = Math.min(
+            Math.abs(region - desiredRegion),
+            regionCount - Math.abs(region - desiredRegion),
+          )
+
+          return {
+            seed,
+            score: regionDistance * groupCount * 2 + Math.abs(seedOffset - groupIndex),
+          }
+        })
+        .sort((a, b) => a.score - b.score || a.seed - b.seed)
+
+      const selectedSeed = candidates[0]?.seed
+      if (!selectedSeed) continue
+
+      unusedSeeds.delete(selectedSeed)
+      seedToQualifier.set(selectedSeed, { groupIndex, rank })
+    }
   }
 
-  const pool = qualifiersByGroup.flat().sort((a, b) => {
-    if (a.rank !== b.rank) return a.rank - b.rank
-    return a.groupIndex - b.groupIndex
+  const slots = seedPlacementOrder.map((seed) => seedToQualifier.get(seed))
+
+  return Array.from({ length: bracketSize / 2 }, (_, index) => {
+    const home = slots[index * 2]
+    const away = slots[index * 2 + 1]
+
+    if (!home || !away) {
+      throw new Error('淘汰赛签位生成失败。')
+    }
+
+    return buildMatch(`R1-M${index + 1}`, home, away, groups)
   })
-
-  const matches: BracketMatch[] = []
-  const used = new Set<number>()
-
-  const getNextUnused = () => pool.findIndex((_, index) => !used.has(index))
-
-  while (used.size < pool.length) {
-    const firstIndex = getNextUnused()
-    if (firstIndex < 0) break
-
-    used.add(firstIndex)
-    const first = pool[firstIndex]
-
-    let bestIndex = -1
-    let bestScore = Number.NEGATIVE_INFINITY
-
-    for (let index = pool.length - 1; index >= 0; index -= 1) {
-      if (used.has(index)) continue
-      const candidate = pool[index]
-
-      const score =
-        (candidate.groupIndex !== first.groupIndex ? 1000 : 0) +
-        candidate.rank * 10 +
-        Math.abs(candidate.groupIndex - first.groupIndex)
-
-      if (score > bestScore) {
-        bestScore = score
-        bestIndex = index
-      }
-    }
-
-    if (bestIndex < 0) {
-      break
-    }
-
-    used.add(bestIndex)
-    const second = pool[bestIndex]
-
-    matches.push({
-      id: `R1-M${matches.length + 1}`,
-      homeLabel: first.label,
-      awayLabel: second.label,
-    })
-  }
-
-  return matches
 }
 
 export function generateGroupingPayload(
